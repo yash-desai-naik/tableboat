@@ -25,6 +25,15 @@ import { gridHandles, type SortState } from "../results/ResultGrid";
 import { ResultsPane } from "../results/ResultsPane";
 import { onRefresh } from "../lib/refresh";
 import { Dialog } from "../shell/Dialog";
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  CodeIcon,
+  DuplicateIcon,
+  PlusIcon,
+  RefreshIcon,
+  TrashIcon,
+} from "../shell/Icons";
 import { ObjectView } from "./ObjectView";
 
 /** Data / Definition choice and paging per tab, kept while switching tabs. */
@@ -293,76 +302,88 @@ function TableData({ info, tab, switcher }: { info: SessionInfo; tab: ObjectTab;
   const hasNext = loaded >= pageSize;
   const rangeText = loaded ? `${(offset + 1).toLocaleString()}–${(offset + loaded).toLocaleString()}` : "0";
 
+  // Status bar, right: ‹ 1–300 of 12,345 ›  Count
   const pager = (
     <div className="pager">
-      <button className="btn small-btn" disabled={offset === 0 || run.running} onClick={() => void go(Math.max(0, offset - pageSize))} title="Previous page">
-        ‹
+      <button className="icon-btn small" disabled={offset === 0 || run.running} onClick={() => void go(Math.max(0, offset - pageSize))} title="Previous page">
+        <ChevronLeftIcon size={14} />
       </button>
       <span className="pager-text">
         {rangeText}
         {total !== null ? ` of ${total.toLocaleString()}` : ""}
       </span>
-      <button className="btn small-btn" disabled={!hasNext || run.running} onClick={() => void go(offset + pageSize)} title="Next page">
-        ›
+      <button className="icon-btn small" disabled={!hasNext || run.running} onClick={() => void go(offset + pageSize)} title="Next page">
+        <ChevronRightIcon size={14} />
       </button>
-      <button className="btn small-btn" disabled={counting} onClick={() => void countRows()} title="Count all rows (SELECT COUNT(*))">
+      <button className="link-btn pager-count" disabled={counting} onClick={() => void countRows()} title="Count all rows (SELECT COUNT(*))">
         {counting ? "Counting…" : "Count"}
-      </button>
-      <button className="btn small-btn" disabled={run.running} onClick={() => void go(offset)} title="Reload this page">
-        Reload
-      </button>
-      <button className="btn small-btn" onClick={() => openQuery(`${buildSql(offset, sort)};`)} title="Open this query in a SQL tab">
-        SQL
       </button>
     </div>
   );
 
+  // Toolbar, left: Data/Definition, then row actions as icons; Save… appears with unsaved edits.
+  const leading = (
+    <>
+      {switcher}
+      {ctx ? (
+        <div className="tool-group">
+          <button className="icon-btn" onClick={() => addRow(tab.id, ctx)} title="Add a row (Ctrl+I)">
+            <PlusIcon />
+          </button>
+          <button className="icon-btn" onClick={() => void duplicate()} title="Duplicate the selected rows (Ctrl+D)">
+            <DuplicateIcon />
+          </button>
+          <button className="icon-btn danger" onClick={() => void remove()} title="Delete the selected rows (Delete); press again to undo">
+            <TrashIcon />
+          </button>
+        </div>
+      ) : (
+        "reason" in edit && edit.reason && <span className="muted small">{edit.reason}</span>
+      )}
+      {editError && (
+        <span className="edit-error" title={editError}>
+          {editError}
+        </span>
+      )}
+      {ctx && count > 0 && (
+        <div className="tool-group pending" data-version={editVersion}>
+          <button className="btn small-btn" onClick={() => void showPreview()} title="Show the SQL that Save will run">
+            Preview
+          </button>
+          <button className="btn small-btn" onClick={() => discardPending(tab.id)} title="Throw away all unsaved changes (Ctrl+Shift+Delete)">
+            Discard
+          </button>
+          <button className="btn primary small-btn" disabled={saving} onClick={() => void save()} title="Save every change in one transaction (Ctrl+S)">
+            {saving ? "Saving…" : `Save ${count}`}
+          </button>
+        </div>
+      )}
+    </>
+  );
+
+  // Toolbar, right (before Export): reload and open as SQL.
+  const tools = (
+    <>
+      <button className="icon-btn" disabled={run.running} onClick={() => void go(offset)} title="Reload this page (Ctrl+R)">
+        <RefreshIcon />
+      </button>
+      <button className="icon-btn" onClick={() => openQuery(`${buildSql(offset, sort)};`)} title="Open this query in a SQL tab">
+        <CodeIcon />
+      </button>
+    </>
+  );
+
   return (
     <>
-      <div className="view-switch edit-bar">
-        {switcher}
-        {ctx ? (
-          <div className="edit-actions">
-            <button className="btn small-btn" onClick={() => addRow(tab.id, ctx)} title="Add a new row (Ctrl+I)">
-              + Row
-            </button>
-            <button className="btn small-btn" onClick={() => void duplicate()} title="Duplicate the selected rows (Ctrl+D)">
-              Duplicate
-            </button>
-            <button className="btn small-btn" onClick={() => void remove()} title="Delete the selected rows (Delete); press again to undo">
-              Delete
-            </button>
-          </div>
-        ) : (
-          "reason" in edit && edit.reason && <span className="muted small">{edit.reason}</span>
-        )}
-        <span className="spacer" />
-        {editError && (
-          <span className="edit-error" title={editError}>
-            {editError}
-          </span>
-        )}
-        {ctx && count > 0 && (
-          <div className="edit-actions" data-version={editVersion}>
-            <button className="btn small-btn" onClick={() => void showPreview()} title="Show the SQL that Save will run">
-              Preview
-            </button>
-            <button className="btn small-btn" onClick={() => discardPending(tab.id)} title="Throw away all unsaved changes (Ctrl+Shift+Delete)">
-              Discard
-            </button>
-            <button className="btn primary small-btn" disabled={saving} onClick={() => void save()} title="Save every change in one transaction (Ctrl+S)">
-              {saving ? "Saving…" : `Save ${count}`}
-            </button>
-          </div>
-        )}
-      </div>
       <div className="table-data">
         <ResultsPane
           tabId={tab.id}
           dialect={dialect}
           table={tab.name}
           serverSort={{ sort, onSort: (s) => void go(0, s) }}
-          extra={pager}
+          leading={leading}
+          tools={tools}
+          footer={pager}
           emptyText="Loading…"
           edit={ctx ? { tabId: tab.id, ctx, version: editVersion, dialect, engine } : undefined}
         />

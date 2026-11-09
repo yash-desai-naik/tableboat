@@ -176,17 +176,119 @@ body.resizing-v * {
 }
 
 /* Shrinks first in a narrow window, so the buttons stay visible. */
-.results-search {
-  flex: 0 1 180px;
-  width: 180px;
-  min-width: 70px;
-  height: 26px;
-  border-color: transparent;
+/* Search: a soft field with a magnifier; plain with a clay edge while typing. */
+.search-box {
+  flex: 0 1 220px;
+  min-width: 84px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
   background: var(--control-fill);
+  color: var(--text-3);
+  cursor: text;
+}
+.search-box:focus-within {
+  border-color: var(--accent);
+  background: var(--bg);
+}
+.search-box svg {
+  flex: none;
+}
+.search-input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
   font-size: var(--fs-md);
 }
-.results-search:focus {
-  background: var(--bg);
+.search-input::placeholder {
+  color: var(--text-3);
+}
+
+/* Table views: one slim toolbar above the grid... */
+/* Results bars are one row: when space runs short the search box and the row count shrink;
+   nothing wraps. */
+.results-bar {
+  flex-wrap: nowrap;
+}
+.results-bar > * {
+  flex-shrink: 0;
+}
+.results-bar > .search-box,
+.results-bar > .results-summary,
+.results-bar > .results-status,
+.results-bar > .edit-error {
+  flex-shrink: 1;
+  min-width: 0;
+}
+.results-bar.toolbar {
+  min-height: var(--panehead-h);
+  gap: 6px;
+  padding: 4px 8px;
+}
+/* ...icon groups separated by a hairline... */
+.tool-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding-left: 8px;
+  margin-left: 4px;
+  border-left: 1px solid var(--border);
+}
+.tool-group.pending {
+  gap: 6px;
+}
+.icon-btn:disabled {
+  opacity: 0.4;
+  background: transparent;
+  cursor: default;
+}
+.icon-btn.danger:hover:not(:disabled) {
+  color: var(--danger);
+}
+/* ...and a quiet status bar below it: row count left, pager right. */
+.status-bar {
+  flex: none;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 6px 0 12px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-chrome);
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+}
+.status-bar .results-summary,
+.status-bar .results-status {
+  font-size: var(--fs-sm);
+}
+.status-bar .pager-text {
+  min-width: 0;
+  padding: 0 4px;
+  font-size: var(--fs-sm);
+}
+.pager-count {
+  margin-left: 6px;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+.pager-count:hover:not(:disabled) {
+  color: var(--accent);
+}
+.pager-count:disabled {
+  color: var(--text-3);
+  text-decoration: none;
+  cursor: default;
 }
 
 .results-body {

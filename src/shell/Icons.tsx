@@ -230,6 +230,74 @@ export function RefreshIcon(p: IconProps) {
   );
 }
 
+/* ---------- toolbar actions ---------- */
+
+export function PlusIcon(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M8 3v10M3 8h10" />
+    </Svg>
+  );
+}
+
+export function DuplicateIcon(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <rect x="5" y="5" width="8.5" height="8.5" rx="1.5" />
+      <path d="M11 5V3.5A1.5 1.5 0 0 0 9.5 2h-6A1.5 1.5 0 0 0 2 3.5v6A1.5 1.5 0 0 0 3.5 11H5" />
+    </Svg>
+  );
+}
+
+export function TrashIcon(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M2.5 4.5h11M6.5 4.5V3h3v1.5M4 4.5l.7 8.6a1 1 0 0 0 1 .9h4.6a1 1 0 0 0 1-.9l.7-8.6M6.7 7v4.5M9.3 7v4.5" />
+    </Svg>
+  );
+}
+
+export function CodeIcon(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M5.5 4.5 2 8l3.5 3.5M10.5 4.5 14 8l-3.5 3.5M9 3 7 13" />
+    </Svg>
+  );
+}
+
+export function DownloadIcon(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M8 2.5v8M4.5 7 8 10.5 11.5 7M3 13.5h10" />
+    </Svg>
+  );
+}
+
+export function SearchIcon(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <circle cx="7" cy="7" r="4.5" />
+      <path d="m10.5 10.5 3 3" />
+    </Svg>
+  );
+}
+
+export function ChevronLeftIcon(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M10 3.5 5.5 8l4.5 4.5" />
+    </Svg>
+  );
+}
+
+export function ChevronRightIcon(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M6 3.5 10.5 8 6 12.5" />
+    </Svg>
+  );
+}
+
 export function FilterIcon(p: IconProps) {
   return (
     <Svg {...p}>

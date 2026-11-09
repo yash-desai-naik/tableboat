@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { save as saveFile } from "@tauri-apps/plugin-dialog";
 import { errorText } from "../lib/connections";
 import {
@@ -11,6 +11,7 @@ import {
   type Dialect,
   type StatementOutcome,
 } from "../lib/query";
+import { DownloadIcon, RefreshIcon, SearchIcon } from "../shell/Icons";
 import { Menu, type MenuItem } from "../shell/Menu";
 import { ResultGrid, type GridEditing, type SortState } from "./ResultGrid";
 
@@ -22,8 +23,15 @@ interface Props {
   /** Server-side sorting (table views). Without it, sorting happens on the loaded rows. */
   serverSort?: { sort: SortState; onSort: (s: SortState) => void };
   onCancel?: () => void;
-  /** Extra controls on the right of the result bar (paging for table views). */
-  extra?: React.ReactNode;
+  /**
+   * Table views: controls for the left of the single toolbar (Data/Definition, row actions,
+   * Save…). With it, the row count and `footer` move to a status bar under the grid.
+   */
+  leading?: ReactNode;
+  /** Icon buttons placed before Export (table views: reload, open as SQL). */
+  tools?: ReactNode;
+  /** Right side of the status bar (table views: the pager). */
+  footer?: ReactNode;
   emptyText?: string;
   edit?: GridEditing;
 }
@@ -45,7 +53,7 @@ interface ViewState {
   version: number;
 }
 
-export function ResultsPane({ tabId, dialect, table, serverSort, onCancel, extra, emptyText, edit }: Props) {
+export function ResultsPane({ tabId, dialect, table, serverSort, onCancel, leading, tools, footer, emptyText, edit }: Props) {
   const run = useRunState(tabId);
   const [views, setViews] = useState<Record<string, ViewState>>({});
   const [status, setStatus] = useState<string | null>(null);
@@ -145,6 +153,97 @@ export function ResultsPane({ tabId, dialect, table, serverSort, onCancel, extra
     return `${rows} · ${formatElapsed(outcome.elapsedMs)}`;
   })();
 
+  const searchBox = info && (
+    <label className="search-box" title="Search the loaded rows (Esc clears)">
+      <SearchIcon size={13} />
+      <input
+        className="search-input"
+        placeholder="Search"
+        value={view?.search ?? ""}
+        onChange={(e) => void applySearch(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Escape" && view?.search) {
+            e.stopPropagation();
+            void applySearch("");
+          }
+        }}
+        spellCheck={false}
+      />
+    </label>
+  );
+
+  const exportButton = info && (
+    <button
+      className="icon-btn"
+      title="Export…"
+      onClick={(e) => {
+        const r = e.currentTarget.getBoundingClientRect();
+        exportMenu(r.right - 200, r.bottom + 4);
+      }}
+    >
+      <DownloadIcon />
+    </button>
+  );
+
+  const summaryText = (
+    <>
+      {summary}
+      {info?.truncated && (
+        <span className="trunc" title="Only the first rows were kept. Raise the limit in settings or add LIMIT/WHERE.">
+          {" "}
+          · first {info.rowCount.toLocaleString()} only
+        </span>
+      )}
+    </>
+  );
+
+  const body = (
+    <div className="results-body">
+      {run.running && !run.outcomes.length && <div className="results-note">Running…</div>}
+      {!run.running && !run.outcomes.length && <div className="results-note">{emptyText ?? "Run a query to see results here."}</div>}
+      {info && view && (
+        <ResultGrid
+          key={info.id}
+          info={info}
+          rowCount={view.rowCount}
+          dialect={dialect}
+          table={table ?? info.columns[0]?.table ?? null}
+          sort={serverSort ? serverSort.sort : view.sort}
+          onSort={(s) => void applySort(s)}
+          version={view.version}
+          onStatus={flash}
+          onExport={() => exportMenu(window.innerWidth / 2, window.innerHeight / 2)}
+          edit={edit}
+        />
+      )}
+      {!info && run.outcomes.length > 0 && run.active === -1 && <Messages outcomes={run.outcomes} />}
+      {!info && run.active >= 0 && outcome && !outcome.resultInfo && <Messages outcomes={[outcome]} />}
+    </div>
+  );
+
+  // Table views: one toolbar on top, the row count and pager in a status bar below the grid.
+  if (leading !== undefined) {
+    return (
+      <div className="results">
+        <div className="results-bar toolbar">
+          {leading}
+          <span className="spacer" />
+          {searchBox}
+          {tools}
+          {exportButton}
+        </div>
+        {body}
+        <div className="status-bar">
+          <span className="results-summary">{summaryText}</span>
+          {status && <span className="results-status">{status}</span>}
+          <span className="spacer" />
+          {footer}
+        </div>
+        {menu && <Menu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
+      </div>
+    );
+  }
+
   return (
     <div className="results">
       <div className="results-bar">
@@ -172,81 +271,27 @@ export function ResultsPane({ tabId, dialect, table, serverSort, onCancel, extra
             </button>
           )}
         </div>
-        <span className="results-summary">
-          {summary}
-          {info?.truncated && (
-            <span className="trunc" title="Only the first rows were kept. Raise the limit in settings or add LIMIT/WHERE.">
-              {" "}
-              · first {info.rowCount.toLocaleString()} only
-            </span>
-          )}
-        </span>
+        <span className="results-summary">{summaryText}</span>
         {status && <span className="results-status">{status}</span>}
         <span className="spacer" />
-        {!serverSort && run.lastRun && !run.running && (
-          <button
-            className="btn small-btn"
-            onClick={() => void rerunTab(tabId)}
-            title={`Run the same ${run.lastRun.statements.length === 1 ? "statement" : `${run.lastRun.statements.length} statements`} again for fresh results`}
-          >
-            Re-run
-          </button>
-        )}
         {run.running && onCancel && (
           <button className="btn small-btn" onClick={onCancel} title="Cancel (Ctrl+.)">
             Cancel
           </button>
         )}
-        {info && (
-          <>
-            <input
-              className="input results-search"
-              placeholder="Search results"
-              value={view?.search ?? ""}
-              onChange={(e) => void applySearch(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Escape" && view?.search) {
-                  e.stopPropagation();
-                  void applySearch("");
-                }
-              }}
-              spellCheck={false}
-            />
-            <button
-              className="btn small-btn"
-              onClick={(e) => {
-                const r = e.currentTarget.getBoundingClientRect();
-                exportMenu(r.left, r.bottom + 4);
-              }}
-            >
-              Export
-            </button>
-          </>
+        {searchBox}
+        {!serverSort && run.lastRun && !run.running && (
+          <button
+            className="icon-btn"
+            onClick={() => void rerunTab(tabId)}
+            title={`Re-run: the same ${run.lastRun.statements.length === 1 ? "statement" : `${run.lastRun.statements.length} statements`} again, for fresh results`}
+          >
+            <RefreshIcon />
+          </button>
         )}
-        {extra}
+        {exportButton}
       </div>
-
-      <div className="results-body">
-        {run.running && !run.outcomes.length && <div className="results-note">Running…</div>}
-        {!run.running && !run.outcomes.length && <div className="results-note">{emptyText ?? "Run a query to see results here."}</div>}
-        {info && view && (
-          <ResultGrid
-            key={info.id}
-            info={info}
-            rowCount={view.rowCount}
-            dialect={dialect}
-            table={table ?? info.columns[0]?.table ?? null}
-            sort={serverSort ? serverSort.sort : view.sort}
-            onSort={(s) => void applySort(s)}
-            version={view.version}
-            onStatus={flash}
-            onExport={() => exportMenu(window.innerWidth / 2, window.innerHeight / 2)}
-            edit={edit}
-          />
-        )}
-        {!info && run.outcomes.length > 0 && run.active === -1 && <Messages outcomes={run.outcomes} />}
-        {!info && run.active >= 0 && outcome && !outcome.resultInfo && <Messages outcomes={[outcome]} />}
-      </div>
+      {body}
       {menu && <Menu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
     </div>
   );
