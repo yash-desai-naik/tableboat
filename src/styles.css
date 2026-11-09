@@ -1,14 +1,16 @@
 /* Tableboat design tokens.
-   Neutral Windows 11 greys, one accent, 4/6/8 px radii, solid surfaces only
-   (no blur, no transparency behind text, so ClearType stays crisp). */
+   Claude-style warm palette: cream / warm charcoal surfaces, one clay accent, soft radii,
+   solid surfaces only (no blur, no transparency behind text, so ClearType stays crisp). */
 
 :root {
   --font-ui: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
   --font-mono: "Cascadia Mono", "Cascadia Code", Consolas, monospace;
+  /* Claude's answers are set in a serif, like claude.ai. */
+  --font-serif: "Tiempos Text", Georgia, Cambria, "Times New Roman", serif;
   --ui-size: 13px;
-  --radius-control: 4px;
-  --radius-pill: 6px;
-  --radius-popup: 8px;
+  --radius-control: 6px;
+  --radius-pill: 8px;
+  --radius-popup: 12px;
   --titlebar-h: 40px;
   --tabs-h: 30px;
   --row-h: 24px;
@@ -28,46 +30,52 @@
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #202020;
-  --bg-chrome: #1c1c1c;
-  --bg-sidebar: #191919;
-  --bg-elevated: #2b2b2b;
-  --bg-hover: #2a2a2a;
-  --bg-active: #333333;
-  --border: #2e2e2e;
-  --border-strong: #3d3d3d;
-  --text: #f3f3f3;
-  --text-2: #c5c5c5;
-  --text-3: #8a8a8a;
-  --accent: #4c8dff;
+  --bg: #262624;
+  --bg-chrome: #1f1e1d;
+  --bg-sidebar: #1f1e1d;
+  --bg-elevated: #30302e;
+  --bg-hover: #31302d;
+  --bg-active: #3b3a36;
+  --border: #353430;
+  --border-strong: #4a4943;
+  --text: #f5f4ee;
+  --text-2: #c2c0b6;
+  --text-3: #8f8d85;
+  --accent: #d97757;
   --accent-text: #ffffff;
-  --accent-tint: #24324a;
-  --danger: #c42b1c;
-  --scrim: rgba(0, 0, 0, 0.4);
+  --accent-tint: #4a3329;
+  --accent-soft: rgba(217, 119, 87, 0.22);
+  --selection: #523a2f;
+  --zebra: #2a2a27;
+  --danger: #e0614f;
+  --scrim: rgba(0, 0, 0, 0.45);
   --shadow-popup: 0 12px 32px rgba(0, 0, 0, 0.5);
-  --scrollbar: #4a4a4a;
+  --scrollbar: #4d4c46;
 }
 
 :root[data-theme="light"] {
   color-scheme: light;
-  --bg: #ffffff;
-  --bg-chrome: #f3f3f3;
-  --bg-sidebar: #eeeeee;
+  --bg: #faf9f5;
+  --bg-chrome: #f3f1ea;
+  --bg-sidebar: #efede5;
   --bg-elevated: #ffffff;
-  --bg-hover: #e6e6e6;
-  --bg-active: #dcdcdc;
-  --border: #e0e0e0;
-  --border-strong: #cfcfcf;
-  --text: #1b1b1b;
-  --text-2: #5c5c5c;
-  --text-3: #8a8a8a;
-  --accent: #0f62d6;
+  --bg-hover: #e9e6dc;
+  --bg-active: #e1ddd0;
+  --border: #e4e1d7;
+  --border-strong: #d3cfc2;
+  --text: #141413;
+  --text-2: #5e5d59;
+  --text-3: #8d8b83;
+  --accent: #c96442;
   --accent-text: #ffffff;
-  --accent-tint: #dce8fa;
-  --danger: #c42b1c;
-  --scrim: rgba(0, 0, 0, 0.2);
-  --shadow-popup: 0 12px 32px rgba(0, 0, 0, 0.18);
-  --scrollbar: #c2c2c2;
+  --accent-tint: #f3e3da;
+  --accent-soft: rgba(201, 100, 66, 0.14);
+  --selection: #f0d6c9;
+  --zebra: #f4f2eb;
+  --danger: #b5352a;
+  --scrim: rgba(20, 20, 19, 0.22);
+  --shadow-popup: 0 12px 32px rgba(40, 30, 20, 0.16);
+  --scrollbar: #cdc9bc;
 }
 
 /* ---------- base ---------- */

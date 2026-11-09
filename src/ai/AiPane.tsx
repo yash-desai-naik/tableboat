@@ -6,6 +6,8 @@ import {
   answerPermission,
   applyEvent,
   claudeApi,
+  clearModel,
+  modelLabel,
   newChat,
   onExit,
   onPermission,
@@ -19,6 +21,7 @@ import {
 } from "../lib/claude";
 import { displayName } from "../lib/connections";
 import { getSession, useSession } from "../lib/session";
+import { useSettings } from "../lib/settings";
 import { activeTab, getWorkspace, useWorkspace } from "../lib/workspace";
 import { CloseSmallIcon } from "../shell/Icons";
 import { Menu, type MenuItem } from "../shell/Menu";
@@ -46,7 +49,16 @@ export function AiPane({ onClose }: { onClose: () => void }) {
   const chat = useChat();
   const session = useSession();
   const ws = useWorkspace();
+  const settings = useSettings();
   const [status, setStatus] = useState<ClaudeStatus | null>(null);
+  // The model actually answering once Claude Code has started; before that, the one it will use.
+  const model = chat.model ?? (settings.claudeModel.trim() || status?.defaultModel || null);
+  const modelSetting = useRef(settings.claudeModel);
+  useEffect(() => {
+    if (modelSetting.current === settings.claudeModel) return;
+    modelSetting.current = settings.claudeModel;
+    clearModel();
+  }, [settings.claudeModel]);
   const [draft, setDraft] = useState("");
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -98,7 +110,19 @@ export function AiPane({ onClose }: { onClose: () => void }) {
   return (
     <div className="ai">
       <div className="pane-header">
-        <span className="pane-title">Claude</span>
+        <span className="pane-title ai-title">
+          <ClaudeMark />
+          Claude
+        </span>
+        {status?.installed && (
+          <span
+            className="ai-model"
+            title={model ? `Model: ${model}${chat.model ? "" : " (used from your next message)"}\nChange it in Settings › Claude model` : "Claude Code's default model\nChange it in Settings › Claude model"}
+          >
+            {model ? modelLabel(model) : "Default model"}
+          </span>
+        )}
+        <span className="spacer" />
         <span className="ai-head-actions">
           <button
             className="icon-btn small"
@@ -212,14 +236,7 @@ function Item({ item }: { item: ChatItem }) {
     case "permission":
       return <Permission item={item} />;
     case "done":
-      return (
-        <div className="ai-done">
-          {item.note ??
-            [item.ms !== undefined ? `${(item.ms / 1000).toFixed(1)} s` : null, item.cost ? `$${item.cost.toFixed(4)}` : null]
-              .filter(Boolean)
-              .join(" · ")}
-        </div>
-      );
+      return <div className="ai-done">{item.note ?? (item.ms !== undefined ? `${(item.ms / 1000).toFixed(1)} s` : "")}</div>;
     case "error":
       return <div className="ai-note error">{item.text}</div>;
   }
@@ -249,6 +266,17 @@ function Permission({ item }: { item: Extract<ChatItem, { kind: "permission" }> 
         </div>
       )}
     </div>
+  );
+}
+
+/** A small starburst in Claude's clay colour, drawn here (not Anthropic's logo file). */
+function ClaudeMark() {
+  return (
+    <svg className="ai-mark" viewBox="0 0 16 16" aria-hidden="true">
+      {[0, 30, 60, 90, 120, 150].map((a) => (
+        <rect key={a} x="7.1" y="1" width="1.8" height="14" rx="0.9" transform={`rotate(${a} 8 8)`} />
+      ))}
+    </svg>
   );
 }
 

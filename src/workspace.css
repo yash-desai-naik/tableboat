@@ -154,35 +154,33 @@ mark {
   display: inline-grid;
   place-items: center;
 }
+/* Muted, warm hues that sit with the clay accent. */
 .kind-table {
-  color: #4c8dff;
+  color: var(--accent);
 }
 .kind-view {
-  color: #a371f7;
+  color: #a593d8;
 }
 .kind-function {
-  color: #d29922;
+  color: #d4a94a;
 }
 .kind-procedure {
-  color: #3fb950;
+  color: #8db07a;
 }
 .kind-trigger {
-  color: #f0883e;
-}
-:root[data-theme="light"] .kind-table {
-  color: #0f62d6;
+  color: #d97a95;
 }
 :root[data-theme="light"] .kind-view {
-  color: #8250df;
+  color: #6f58b0;
 }
 :root[data-theme="light"] .kind-function {
-  color: #9a6700;
+  color: #8a6400;
 }
 :root[data-theme="light"] .kind-procedure {
-  color: #1a7f37;
+  color: #4b7a36;
 }
 :root[data-theme="light"] .kind-trigger {
-  color: #bc4c00;
+  color: #a8435f;
 }
 
 /* ---------- tabs ---------- */

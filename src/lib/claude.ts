@@ -7,7 +7,7 @@ export type ChatItem =
   | { kind: "assistant"; text: string; streaming?: boolean }
   | { kind: "tool"; id: string; name: string; input: unknown; result?: string; isError?: boolean }
   | { kind: "permission"; id: string; toolName: string; input: Record<string, unknown>; state: "pending" | "allowed" | "denied" }
-  | { kind: "done"; ms?: number; cost?: number; note?: string }
+  | { kind: "done"; ms?: number; note?: string }
   | { kind: "error"; text: string };
 
 export interface ClaudeStatus {
@@ -16,6 +16,8 @@ export interface ClaudeStatus {
   running: boolean;
   session: string | null;
   folder: string;
+  /** Claude Code's own default model (~/.claude/settings.json), e.g. "opus". */
+  defaultModel: string | null;
 }
 
 export interface PastChat {
@@ -43,9 +45,11 @@ interface State {
   stoppedByUser: boolean;
   /** Claude changed data in this answer (execute_sql): refresh when it finishes. */
   wroteData: boolean;
+  /** The model answering, as Claude Code reports it (e.g. "claude-opus-5-5"). */
+  model: string | null;
 }
 
-let state: State = { items: [], running: false, streaming: null, streamed: new Set(), stoppedByUser: false, wroteData: false };
+let state: State = { items: [], running: false, streaming: null, streamed: new Set(), stoppedByUser: false, wroteData: false, model: null };
 const listeners = new Set<() => void>();
 
 function set(patch: Partial<State>) {
@@ -80,6 +84,11 @@ export function applyEvent(ev: Record<string, unknown>, live: boolean) {
   const items = [...state.items];
   const type = ev.type as string;
 
+  if (type === "system" && ev.subtype === "init" && typeof ev.model === "string") {
+    set({ model: ev.model });
+    return;
+  }
+
   if (type === "stream_event") {
     const e = ev.event as Record<string, unknown>;
     if (e?.type === "message_start") {
@@ -106,7 +115,9 @@ export function applyEvent(ev: Record<string, unknown>, live: boolean) {
   }
 
   if (type === "assistant") {
-    const msg = ev.message as { id?: string; content?: unknown };
+    const msg = ev.message as { id?: string; content?: unknown; model?: string };
+    // Replayed chats have no init message: the model comes with each answer instead.
+    const model = typeof msg?.model === "string" && !msg.model.startsWith("<") ? msg.model : state.model;
     const streamedAlready = live && msg?.id ? state.streamed.has(msg.id) : false;
     for (const block of Array.isArray(msg?.content) ? msg.content : []) {
       const b = block as { type: string; text?: string; id?: string; name?: string; input?: unknown };
@@ -115,7 +126,7 @@ export function applyEvent(ev: Record<string, unknown>, live: boolean) {
         items.push({ kind: "tool", id: b.id ?? "", name: (b.name ?? "").replace(/^mcp__tableboat__/, "tableboat › "), input: b.input });
       }
     }
-    set({ items });
+    set({ items, model });
     return;
   }
 
@@ -144,9 +155,9 @@ export function applyEvent(ev: Record<string, unknown>, live: boolean) {
   }
 
   if (type === "result") {
-    const r = ev as { duration_ms?: number; total_cost_usd?: number; is_error?: boolean; result?: string; subtype?: string };
+    const r = ev as { duration_ms?: number; is_error?: boolean; result?: string; subtype?: string };
     if (r.is_error) items.push({ kind: "error", text: r.result || `Claude Code stopped (${r.subtype ?? "error"}).` });
-    items.push({ kind: "done", ms: r.duration_ms, cost: r.total_cost_usd });
+    items.push({ kind: "done", ms: r.duration_ms });
     const wrote = state.wroteData;
     set({ items, running: false, streaming: null, wroteData: false });
     // Claude changed data: reload what's on screen so it isn't stale.
@@ -192,6 +203,11 @@ export async function shutdown() {
   set({ running: false, streaming: null });
 }
 
+/** Forget the model Claude Code last reported (the model setting changed). */
+export function clearModel() {
+  if (state.model !== null) set({ model: null });
+}
+
 export async function newChat() {
   await invoke("claude_new", { resume: null });
   set({ items: [], running: false, streaming: null, streamed: new Set() });
@@ -212,6 +228,18 @@ export async function answerPermission(id: string, allow: boolean, always: boole
     ),
   });
   await invoke("claude_permission_reply", { id, allow, always });
+}
+
+/**
+ * A friendly model name: "claude-opus-5-5" -> "Opus 5.5", "claude-sonnet-4-5-20250929" -> "Sonnet 4.5",
+ * "opus" -> "Opus", "opus[1m]" -> "Opus (1M)". Anything else is shown as given.
+ */
+export function modelLabel(id: string): string {
+  const m = /^(?:claude-)?(opus|sonnet|haiku|fable)(?:-(\d+)(?:-(\d{1,2}))?)?(?:-\d{8})?(\[1m\])?$/i.exec(id.trim());
+  if (!m) return id;
+  const family = m[1][0].toUpperCase() + m[1].slice(1).toLowerCase();
+  const version = m[2] ? ` ${m[2]}${m[3] ? `.${m[3]}` : ""}` : "";
+  return `${family}${version}${m[4] ? " (1M)" : ""}`;
 }
 
 export const claudeApi = {

@@ -213,6 +213,17 @@ pub struct ClaudeStatus {
     running: bool,
     session: Option<String>,
     folder: String,
+    /// The model Claude Code uses when Tableboat doesn't pick one (from ~/.claude/settings.json).
+    default_model: Option<String>,
+}
+
+/// The "model" entry of Claude Code's user settings, if any.
+fn claude_default_model() -> Option<String> {
+    let home = std::env::var_os("USERPROFILE").or_else(|| std::env::var_os("HOME"))?;
+    let text = std::fs::read_to_string(std::path::Path::new(&home).join(".claude").join("settings.json")).ok()?;
+    let value: serde_json::Value = serde_json::from_str(&text).ok()?;
+    let model = value.get("model")?.as_str()?.trim();
+    (!model.is_empty()).then(|| model.to_string())
 }
 
 #[tauri::command]
@@ -226,6 +237,7 @@ pub fn claude_status(window: tauri::Window, hub: tauri::State<'_, ClaudeHub>) ->
         running: w.map(|w| w.proc.is_some()).unwrap_or(false),
         session: w.and_then(|w| w.claude_session.clone()),
         folder: SESSIONS_DIR.into(),
+        default_model: claude_default_model(),
     }
 }
 

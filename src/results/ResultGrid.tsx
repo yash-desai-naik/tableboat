@@ -73,7 +73,7 @@ function readTheme() {
   const theme: Partial<Theme> = {
     accentColor: v("--accent"),
     accentFg: "#ffffff",
-    accentLight: dark ? "rgba(76,141,255,0.20)" : "rgba(15,98,214,0.14)",
+    accentLight: v("--accent-soft"),
     textDark: v("--text"),
     textMedium: v("--text-2"),
     textLight: v("--text-3"),
@@ -106,7 +106,7 @@ function readTheme() {
   };
   return {
     theme,
-    zebra: dark ? "#242424" : "#f7f7f7",
+    zebra: v("--zebra"),
     muted: v("--text-3"),
     // Pending changes: amber edited cells, green new rows, red deleted rows.
     changed: dark ? "#3b3218" : "#fff1cc",

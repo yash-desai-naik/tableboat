@@ -46,16 +46,16 @@ function chrome(dark: boolean): Extension {
         fontFamily: "var(--font-mono)",
         lineHeight: "1.55",
       },
-      ".cm-content": { caretColor: dark ? "#AEAFAD" : "#000000", padding: "6px 0" },
-      ".cm-cursor, .cm-dropCursor": { borderLeftColor: dark ? "#AEAFAD" : "#000000", borderLeftWidth: "2px" },
+      ".cm-content": { caretColor: "var(--accent)", padding: "6px 0" },
+      ".cm-cursor, .cm-dropCursor": { borderLeftColor: "var(--accent)", borderLeftWidth: "2px" },
       "&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-selectionBackground, ::selection":
-        { backgroundColor: dark ? "#264F78" : "#ADD6FF" },
+        { backgroundColor: "var(--selection)" },
       ".cm-gutters": {
         backgroundColor: "var(--bg)",
         color: dark ? "#6E7681" : "#9A9A9A",
         border: "none",
       },
-      ".cm-activeLineGutter": { backgroundColor: "transparent", color: dark ? "#CCCCCC" : "#0B216F" },
+      ".cm-activeLineGutter": { backgroundColor: "transparent", color: "var(--text-2)" },
       ".cm-activeLine": { backgroundColor: "transparent" },
       // The statement Ctrl+Enter will run.
       ".cm-current-stmt": { backgroundColor: dark ? "rgba(255,255,255,0.045)" : "rgba(0,0,0,0.035)" },
@@ -63,7 +63,7 @@ function chrome(dark: boolean): Extension {
         backgroundColor: dark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.1)",
         outline: dark ? "1px solid #888" : "1px solid #B9B9B9",
       },
-      ".cm-selectionMatch": { backgroundColor: dark ? "rgba(173,214,255,0.15)" : "rgba(173,214,255,0.5)" },
+      ".cm-selectionMatch": { backgroundColor: "var(--accent-soft)" },
       ".cm-searchMatch": { backgroundColor: dark ? "#623315" : "#F8C9AB", outline: "none" },
       ".cm-searchMatch.cm-searchMatch-selected": { backgroundColor: dark ? "#9E6A03" : "#F6B94D" },
       ".cm-foldPlaceholder": { backgroundColor: "transparent", border: "none", color: "var(--text-3)" },
@@ -75,7 +75,7 @@ function chrome(dark: boolean): Extension {
       },
       ".cm-tooltip-autocomplete > ul": { fontFamily: "var(--font-mono)", fontSize: "12px" },
       ".cm-tooltip-autocomplete > ul > li[aria-selected]": {
-        backgroundColor: dark ? "#04395E" : "#D6EBFF",
+        backgroundColor: "var(--accent-tint)",
         color: "var(--text)",
       },
       ".cm-completionDetail": { color: "var(--text-3)", fontStyle: "normal", marginLeft: "12px" },

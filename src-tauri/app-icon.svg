@@ -1,13 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
-  <rect x="64" y="64" width="896" height="896" rx="200" fill="#1f6feb"/>
+  <rect x="64" y="64" width="896" height="896" rx="200" fill="#d97757"/>
   <!-- sail drawn as a small table: header + rows -->
   <path d="M500 220 L500 640 L250 640 Z" fill="#ffffff"/>
   <rect x="540" y="250" width="230" height="56" rx="10" fill="#ffffff"/>
-  <rect x="540" y="340" width="230" height="40" rx="8" fill="#cfe0ff"/>
-  <rect x="540" y="410" width="230" height="40" rx="8" fill="#cfe0ff"/>
-  <rect x="540" y="480" width="230" height="40" rx="8" fill="#cfe0ff"/>
-  <rect x="540" y="550" width="230" height="40" rx="8" fill="#cfe0ff"/>
+  <rect x="540" y="340" width="230" height="40" rx="8" fill="#f8ddd0"/>
+  <rect x="540" y="410" width="230" height="40" rx="8" fill="#f8ddd0"/>
+  <rect x="540" y="480" width="230" height="40" rx="8" fill="#f8ddd0"/>
+  <rect x="540" y="550" width="230" height="40" rx="8" fill="#f8ddd0"/>
   <rect x="512" y="200" width="16" height="470" rx="8" fill="#ffffff"/>
   <!-- hull -->
-  <path d="M190 690 L834 690 L760 800 L264 800 Z" fill="#0b2a5b"/>
+  <path d="M190 690 L834 690 L760 800 L264 800 Z" fill="#4a2416"/>
 </svg>
