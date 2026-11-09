@@ -28,6 +28,8 @@ export interface PastChat {
 
 export interface AiContext {
   sessionId: string | null;
+  /** The saved connection: each one is its own Claude Code project (folder, chats, notes). */
+  connectionId: string | null;
   connectionName: string | null;
   engine: string | null;
   database: string | null;
@@ -209,6 +211,11 @@ export async function shutdown() {
 /** Forget the model Claude Code last reported (the model setting changed). */
 export function clearModel() {
   if (state.model !== null) set({ model: null });
+}
+
+/** The window moved to another connection (another project): its chat starts empty. */
+export function resetChat() {
+  set({ items: [], running: false, streaming: null, streamed: new Set(), stoppedByUser: false, wroteData: false });
 }
 
 export async function newChat() {

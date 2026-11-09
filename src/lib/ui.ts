@@ -7,7 +7,10 @@ export const uiActions = {
   openDatabasePicker: () => {},
   refreshObjects: () => {},
   focusObjectFilter: () => {},
-  /** Connection switcher: "list" (open here), "window" (open in a new window), or straight to a new connection / URL. */
-  openConnections: (_mode: "list" | "window" | "new" | "url" = "list") => {},
+  /**
+   * Connection switcher: "list" (open here), "window" (open in a new window), "edit" (the
+   * connection open here), or straight to a new connection / URL.
+   */
+  openConnections: (_mode: "list" | "window" | "new" | "url" | "edit" = "list") => {},
   openSettings: () => {},
 };

@@ -502,17 +502,19 @@ kbd {
 [cmdk-item][data-selected="true"] {
   background: var(--bg-active);
 }
-/* "Open in a new window" on a connection row: shown on the highlighted or hovered row. */
-.palette-newwin {
+/* Edit / open in a new window on a connection row: shown on the highlighted or hovered row. */
+.palette-action {
   flex: none;
-  margin-left: auto;
   visibility: hidden;
 }
-[cmdk-item][data-selected="true"] .palette-newwin,
-[cmdk-item]:hover .palette-newwin {
+[cmdk-item] > .palette-action:first-of-type {
+  margin-left: auto;
+}
+[cmdk-item][data-selected="true"] .palette-action,
+[cmdk-item]:hover .palette-action {
   visibility: visible;
 }
-.palette-newwin:hover {
+.palette-action:hover {
   background: var(--control-fill-hover);
   color: var(--accent);
 }

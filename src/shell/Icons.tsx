@@ -58,6 +58,14 @@ export function PlugIcon(p: IconProps) {
   );
 }
 
+export function PencilIcon(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <path d="M10.5 2.5 13.5 5.5 5.5 13.5H2.5v-3z M9 4l3 3" />
+    </Svg>
+  );
+}
+
 /** A window with a "+": open something in a new window. */
 export function NewWindowIcon(p: IconProps) {
   return (

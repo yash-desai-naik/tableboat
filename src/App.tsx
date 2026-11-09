@@ -101,6 +101,8 @@ export function App() {
             onSelect: () =>
               void api.toUrl(session.info.connection.id, false).then((u) => navigator.clipboard.writeText(u)),
           },
+          { label: "Edit Connection…", onSelect: () => setSwitcher("edit") },
+          "separator",
           { label: "Open in New Window", onSelect: () => void api.newWindow(session.info.connection.id) },
           { label: "Open Another Connection in New Window…", hint: "Ctrl+Alt+K", onSelect: () => setSwitcher("window") },
           "separator",

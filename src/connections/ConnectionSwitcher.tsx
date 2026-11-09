@@ -12,13 +12,17 @@ import {
   type ConnectionSummary,
   type Secrets,
 } from "../lib/connections";
-import { connect, useSession } from "../lib/session";
-import { NewWindowIcon } from "../shell/Icons";
+import { ask } from "@tauri-apps/plugin-dialog";
+import { applyEditedConnection, connect, useSession } from "../lib/session";
+import { NewWindowIcon, PencilIcon } from "../shell/Icons";
 import { ConnectionForm } from "./ConnectionForm";
 import { PasswordDialog, UrlDialog } from "./ConnectionList";
 
-/** "list": open here (Ctrl+Enter = new window); "window": open in a new window (Ctrl+Enter = here). */
-export type SwitcherMode = "list" | "window" | "new" | "url";
+/**
+ * "list": open here (Ctrl+Enter = new window); "window": open in a new window (Ctrl+Enter = here);
+ * "edit": edit the connection open in this window.
+ */
+export type SwitcherMode = "list" | "window" | "new" | "url" | "edit";
 
 interface Props {
   initialMode: SwitcherMode;
@@ -29,7 +33,14 @@ type Stage =
   | { kind: "list" }
   | { kind: "url" }
   | { kind: "form"; initial: Connection; secrets?: Secrets }
+  | { kind: "edit"; summary: ConnectionSummary }
+  | { kind: "loading" }
   | { kind: "password"; target: ConnectionSummary; newWindow: boolean };
+
+/** A connection row's search text (also its identity for the highlighted row). */
+function itemValue(c: ConnectionSummary): string {
+  return `${displayName(c)} ${describeTarget(c)} ${c.tag ?? ""} ${c.id}`.trim();
+}
 
 /**
  * Ctrl+Shift+K: open another saved connection (Enter = this window, Ctrl+Enter = new
@@ -41,19 +52,66 @@ export function ConnectionSwitcher({ initialMode, onClose }: Props) {
   const [items, setItems] = useState<ConnectionSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [stage, setStage] = useState<Stage>(
-    initialMode === "new" ? { kind: "form", initial: newConnection() } : initialMode === "url" ? { kind: "url" } : { kind: "list" },
+    initialMode === "new"
+      ? { kind: "form", initial: newConnection() }
+      : initialMode === "url"
+        ? { kind: "url" }
+        : initialMode === "edit"
+          ? { kind: "loading" }
+          : { kind: "list" },
   );
   const newWindow = useRef(false);
   const [busy, setBusy] = useState<string | null>(null);
   // In "window" mode Enter opens a new window and Ctrl+Enter opens here; otherwise the reverse.
   const windowFirst = initialMode === "window";
+  // The highlighted row. The saved connections arrive after the "Create" items are on screen,
+  // so pick a connection once they load: the first one not already open here.
+  const [active, setActive] = useState("");
+  useEffect(() => {
+    if (!items?.length) return;
+    const first = items.find((c) => c.id !== currentId) ?? items[0];
+    setActive(itemValue(first));
+  }, [items, currentId]);
 
   useEffect(() => {
     api
       .list()
-      .then((list) => setItems(list.sort((a, b) => displayName(a).localeCompare(displayName(b)))))
-      .catch((err) => setError(errorText(err)));
+      .then((list) => {
+        setItems(list.sort((a, b) => displayName(a).localeCompare(displayName(b))));
+        // "Edit connection": straight to the form for the connection open here.
+        if (initialMode === "edit") {
+          const current = list.find((c) => c.id === currentId);
+          setStage(current ? { kind: "edit", summary: current } : { kind: "list" });
+        }
+      })
+      .catch((err) => {
+        setError(errorText(err));
+        setStage((s) => (s.kind === "loading" ? { kind: "list" } : s));
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /** After saving an edit: update this window if it's the open connection; offer to reconnect. */
+  async function afterEdit(saved: ConnectionSummary, connectWith: { password?: string } | null) {
+    if (connectWith) {
+      void open(saved, false, connectWith.password);
+      return;
+    }
+    setItems((list) => list && list.map((c) => (c.id === saved.id ? saved : c)));
+    if (applyEditedConnection(saved)) {
+      const reconnect = await ask(`${displayName(saved)}: the new settings take effect after reconnecting. Reconnect now?`, {
+        title: "Connection changed",
+        kind: "info",
+        okLabel: "Reconnect",
+        cancelLabel: "Later",
+      });
+      if (reconnect) {
+        void open(saved, false);
+        return;
+      }
+    }
+    onClose();
+  }
 
   async function open(c: ConnectionSummary, inNewWindow: boolean, password?: string) {
     if (inNewWindow) {
@@ -106,6 +164,20 @@ export function ConnectionSwitcher({ initialMode, onClose }: Props) {
     );
   }
 
+  if (stage.kind === "loading") return null;
+
+  if (stage.kind === "edit") {
+    return (
+      <ConnectionForm
+        title={`Edit ${displayName(stage.summary)}`}
+        initial={stage.summary}
+        stored={stage.summary}
+        onClose={onClose}
+        onSaved={(saved, connectWith) => void afterEdit(saved, connectWith)}
+      />
+    );
+  }
+
   if (stage.kind === "password") {
     return (
       <PasswordDialog
@@ -119,7 +191,7 @@ export function ConnectionSwitcher({ initialMode, onClose }: Props) {
   return (
     <div className="overlay" onMouseDown={onClose}>
       <div className="palette" onMouseDown={(e) => e.stopPropagation()}>
-        <Cmdk label="Open connection" loop>
+        <Cmdk label="Open connection" loop value={active} onValueChange={setActive}>
           <Cmdk.Input
             autoFocus
             placeholder={windowFirst ? "Open a connection in a new window…" : "Open a connection…"}
@@ -143,7 +215,7 @@ export function ConnectionSwitcher({ initialMode, onClose }: Props) {
                   return (
                     <Cmdk.Item
                       key={c.id}
-                      value={`${displayName(c)} ${describeTarget(c)} ${c.tag ?? ""} ${c.id}`}
+                      value={itemValue(c)}
                       onSelect={() => {
                         const ctrl = newWindow.current;
                         newWindow.current = false;
@@ -163,9 +235,21 @@ export function ConnectionSwitcher({ initialMode, onClose }: Props) {
                           {tag.short}
                         </span>
                       )}
+                      <button
+                        className="icon-btn small palette-action"
+                        title="Edit this connection"
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setStage({ kind: "edit", summary: c });
+                        }}
+                      >
+                        <PencilIcon size={14} />
+                      </button>
                       {!windowFirst && (
                         <button
-                          className="icon-btn small palette-newwin"
+                          className="icon-btn small palette-action"
                           title="Open in a new window (Ctrl+Enter)"
                           onMouseDown={(e) => e.stopPropagation()}
                           onPointerDown={(e) => e.stopPropagation()}

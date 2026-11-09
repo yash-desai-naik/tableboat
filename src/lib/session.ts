@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { api, errorText, type SessionInfo } from "./connections";
+import { api, errorText, type Connection, type SessionInfo } from "./connections";
 import { flushWorkspace, rememberLastConnection } from "./persist";
 
 /** The database session open in this window (one per window). */
@@ -46,6 +46,28 @@ export async function connect(connectionId: string, name: string, password?: str
     set({ status: "none" });
     throw new Error(errorText(err));
   }
+}
+
+/** Fields that only change how a connection looks: editing them needs no reconnect. */
+const COSMETIC = new Set(["name", "color", "tag", "createdAt", "updatedAt", "hasPassword", "hasSshPassword", "hasSshPassphrase"]);
+
+/**
+ * A saved connection was edited. When it's the one open in this window, show the new name,
+ * colour and tag at once; returns true when other settings changed (host, user, SSL, SSH…),
+ * which only take effect after reconnecting.
+ */
+export function applyEditedConnection(saved: Connection): boolean {
+  if (state.status !== "open" || state.info.connection.id !== saved.id) return false;
+  const before = state.info.connection;
+  const key = (c: Connection) =>
+    JSON.stringify(
+      Object.entries(c)
+        .filter(([k]) => !COSMETIC.has(k))
+        .sort(([a], [b]) => a.localeCompare(b)),
+    );
+  const needsReconnect = key(before) !== key({ ...before, ...saved });
+  set({ status: "open", info: { ...state.info, connection: { ...before, ...saved } } });
+  return needsReconnect;
 }
 
 /** Disconnect on purpose: the next start-up shows the connection list instead of reconnecting. */

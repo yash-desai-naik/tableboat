@@ -140,6 +140,7 @@ export function buildCommands(ctx: CommandContext): Command[] {
 
   const connectionCommands: Command[] = connected
     ? [
+        { id: "connection.edit", category: "Connection", title: "Edit Connection…", run: () => uiActions.openConnections("edit") },
         { id: "connection.new", category: "Connection", title: "New Connection…", run: () => uiActions.openConnections("new") },
         { id: "connection.fromUrl", category: "Connection", title: "New Connection from URL…", run: () => uiActions.openConnections("url") },
         { id: "connection.disconnect", category: "Connection", title: "Disconnect", run: () => void disconnect() },

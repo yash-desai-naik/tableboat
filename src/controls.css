@@ -267,6 +267,19 @@ textarea.input {
 .conn-row.selected {
   background: var(--accent-tint);
 }
+/* Edit (pencil) on a connection row: shown on hover and on the selected row. */
+.conn-edit {
+  flex: none;
+  margin-left: auto;
+  visibility: hidden;
+}
+.conn-row:hover .conn-edit,
+.conn-row.selected .conn-edit {
+  visibility: visible;
+}
+.conn-edit:hover {
+  color: var(--accent);
+}
 
 .conn-badge {
   flex: none;

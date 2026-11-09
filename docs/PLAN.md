@@ -74,7 +74,7 @@ Tableboat.exe
 - `%APPDATA%\Tableboat\settings.json`: settings (also editable by hand)
 - `%APPDATA%\Tableboat\state\`: open tabs, editor text, column widths
 - Windows Credential Manager: passwords and SSH key passphrases
-- `D:\tableboat\sessions\`: Claude Code's working directory
+- `~\.tableboat\sessions\<connection>\`: Claude Code's working directory, one project per connection (its own chats, CLAUDE.md notes and memory); `general\` when not connected
 
 ## 4. Visual direction
 
@@ -104,7 +104,7 @@ Each milestone ends with: a build you run and try, measured RAM (private working
 | **M4** | **Editing** – edit / NULL / add / duplicate / delete rows, pending highlights, Save N, Discard, Preview, unsaved-changes prompts | Edit data safely with one Save |
 | **M5** | **PostgreSQL and MongoDB** – drivers, schema switcher, object lists, editor modes, editing (Mongo by `_id`) | All four engines working |
 | **M6** | **Palette and settings** – every command in Ctrl+Shift+P with shortcuts, quick toggles, full settings page with search, tabs and editor text restored after restart | Configure everything from the keyboard |
-| **M7** | **AI pane** – `claude.exe` bridge in `D:\tableboat\sessions`, streaming chat, tool calls, Allow / Deny, stop, sessions list and resume, Insert / Run SQL buttons, MCP tools for schema and read-only queries | Ask Claude about your database beside your work |
+| **M7** | **AI pane** – `claude.exe` bridge in `~\.tableboat\sessions\<connection>`, streaming chat, tool calls, Allow / Deny, stop, sessions list and resume, Insert / Run SQL buttons, MCP tools for schema and read-only queries | Ask Claude about your database beside your work |
 | **M8** | **Finish** – per-user installer (no admin), edge-case test pass (below), final RAM / CPU report | Install it like any app |
 
 ## 6. Edge cases built in from the research

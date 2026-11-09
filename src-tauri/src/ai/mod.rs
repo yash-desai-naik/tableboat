@@ -1,6 +1,9 @@
-//! The Claude pane: runs the user's own `claude.exe` (Claude Code) in
-//! `D:\tableboat\sessions`, talking stream-JSON over stdin/stdout. No Node.js and no ACP
-//! adapter: Rust speaks the same protocol the adapter uses.
+//! The Claude pane: runs the user's own `claude.exe` (Claude Code), talking stream-JSON over
+//! stdin/stdout. No Node.js and no ACP adapter: Rust speaks the same protocol the adapter uses.
+//!
+//! Each connection is its own Claude Code project: `~/.tableboat/sessions/<connection>/`. So its
+//! chats, its CLAUDE.md notes and Claude Code's memory for it stay separate from other
+//! connections. Without a connection, chats go to `~/.tableboat/sessions/general/`.
 //!
 //! The process only exists while the pane is open. Database access comes from Tableboat's
 //! own MCP server (see `mcp.rs`); every other permission question is routed to the pane's
@@ -18,13 +21,88 @@ use tauri::{AppHandle, Emitter, Manager};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt};
 use tokio::process::{Child, ChildStdin, Command};
 
-pub const SESSIONS_DIR: &str = r"D:\tableboat\sessions";
+/// Where the per-connection project folders live: `~/.tableboat/sessions` (the user's profile,
+/// so the app works the same on any PC).
+pub fn sessions_base() -> PathBuf {
+    let home = std::env::var_os("USERPROFILE").or_else(|| std::env::var_os("HOME")).map(PathBuf::from);
+    home.unwrap_or_else(|| PathBuf::from(".")).join(".tableboat").join("sessions")
+}
+
+/// A folder name from a connection name: letters, digits, '.', '_' and '-' only.
+fn folder_name(name: &str) -> String {
+    let mut out = String::new();
+    for c in name.trim().chars() {
+        if c.is_ascii_alphanumeric() || c == '.' || c == '_' || c == '-' {
+            out.push(c.to_ascii_lowercase());
+        } else if !out.ends_with('-') {
+            out.push('-');
+        }
+    }
+    let out: String = out.trim_matches(|c| c == '-' || c == '.').chars().take(60).collect();
+    let out = out.trim_end_matches(['-', '.']).to_string();
+    // Reserved for chats without a connection, and names Windows can't use.
+    let reserved = ["general", "con", "prn", "aux", "nul", "com1", "lpt1"];
+    if out.is_empty() || reserved.contains(&out.as_str()) { format!("{}-db", if out.is_empty() { "connection" } else { &out }) } else { out }
+}
+
+static PROJECTS_LOCK: Mutex<()> = Mutex::new(());
+
+/// The project folder for a connection. The name is chosen the first time (from the connection's
+/// name) and remembered in `state/claude-projects.json`, so renaming the connection keeps its chats.
+fn project_folder(app: &AppHandle, connection_id: Option<&str>, connection_name: Option<&str>) -> PathBuf {
+    let base = sessions_base();
+    let Some(id) = connection_id.filter(|id| !id.is_empty()) else { return base.join("general") };
+    let _guard = PROJECTS_LOCK.lock().unwrap();
+    let map_path = crate::paths::data_dir(app).ok().map(|d| d.join("state").join("claude-projects.json"));
+    let mut map: std::collections::BTreeMap<String, String> = map_path
+        .as_ref()
+        .and_then(|p| std::fs::read_to_string(p).ok())
+        .and_then(|t| serde_json::from_str(&t).ok())
+        .unwrap_or_default();
+    if let Some(folder) = map.get(id) {
+        return base.join(folder);
+    }
+    let stem = folder_name(connection_name.unwrap_or("connection"));
+    let used: HashSet<&String> = map.values().collect();
+    let mut folder = stem.clone();
+    let mut n = 2;
+    while used.contains(&folder) {
+        folder = format!("{stem}-{n}");
+        n += 1;
+    }
+    map.insert(id.to_string(), folder.clone());
+    if let Some(p) = map_path {
+        let _ = std::fs::create_dir_all(p.parent().unwrap());
+        let _ = crate::paths::write_atomic(&p, &serde_json::to_string_pretty(&map).unwrap_or_default());
+    }
+    base.join(folder)
+}
+
+/// A starter CLAUDE.md in a connection's folder (Claude Code reads it every chat): a place for
+/// notes about this database that should carry over between chats. Never overwritten.
+fn write_starter_notes(folder: &std::path::Path, context: &AiContext) {
+    let path = folder.join("CLAUDE.md");
+    if path.exists() || folder.file_name().map(|n| n == "general").unwrap_or(false) {
+        return;
+    }
+    let name = context.connection_name.as_deref().unwrap_or("this connection");
+    let engine = context.engine.as_deref().unwrap_or("database");
+    let text = format!(
+        "# {name}\n\nNotes for Claude about the Tableboat connection \"{name}\" ({engine}). Claude Code reads this \
+         file at the start of every chat for this connection, so keep what should be remembered here: what the \
+         databases and tables are for, naming conventions, columns to be careful with, queries that are often \
+         needed.\n\n## Notes\n\n"
+    );
+    let _ = std::fs::write(path, text);
+}
 
 /// What Tableboat tells Claude about the window's current state.
 #[derive(Debug, Clone, Default, serde::Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct AiContext {
     pub session_id: Option<String>,
+    /// The saved connection's id: picks the Claude Code project folder.
+    pub connection_id: Option<String>,
     pub connection_name: Option<String>,
     pub engine: Option<String>,
     pub database: Option<String>,
@@ -46,6 +124,8 @@ struct WindowState {
     /// Tools the user allowed for the rest of this chat.
     always_allowed: HashSet<String>,
     context: AiContext,
+    /// The connection's project folder, where Claude Code runs for this window.
+    folder: Option<PathBuf>,
 }
 
 pub struct ClaudeHub {
@@ -66,8 +146,40 @@ impl ClaudeHub {
         self.windows.lock().unwrap().get(window).map(|w| w.context.clone()).unwrap_or_default()
     }
 
-    pub fn set_context(&self, window: &str, ctx: AiContext) {
-        self.windows.lock().unwrap().entry(window.to_string()).or_default().context = ctx;
+    /// Update what the window shows. Returns true when the window moved to another connection:
+    /// its Claude Code process and chat belong to the old connection's project and are dropped.
+    pub fn set_context(&self, app: &AppHandle, window: &str, ctx: AiContext) -> bool {
+        let unchanged = {
+            let windows = self.windows.lock().unwrap();
+            windows.get(window).is_some_and(|w| w.folder.is_some() && w.context.connection_id == ctx.connection_id)
+        };
+        if unchanged {
+            self.windows.lock().unwrap().entry(window.to_string()).or_default().context = ctx;
+            return false;
+        }
+        let folder = project_folder(app, ctx.connection_id.as_deref(), ctx.connection_name.as_deref());
+        let mut windows = self.windows.lock().unwrap();
+        let w = windows.entry(window.to_string()).or_default();
+        let moved = w.folder.as_ref().is_some_and(|f| *f != folder);
+        if moved {
+            // Dropping the process kills it (kill_on_drop); the next message starts a new chat.
+            w.proc = None;
+            w.claude_session = None;
+            w.always_allowed.clear();
+        }
+        w.folder = Some(folder);
+        w.context = ctx;
+        moved
+    }
+
+    /// The window's project folder (from its current connection).
+    pub fn folder(&self, app: &AppHandle, window: &str) -> PathBuf {
+        let (known, ctx) = {
+            let windows = self.windows.lock().unwrap();
+            let w = windows.get(window);
+            (w.and_then(|w| w.folder.clone()), w.map(|w| w.context.clone()).unwrap_or_default())
+        };
+        known.unwrap_or_else(|| project_folder(app, ctx.connection_id.as_deref(), ctx.connection_name.as_deref()))
     }
 
     pub fn is_always_allowed(&self, window: &str, tool: &str) -> bool {
@@ -96,8 +208,9 @@ pub fn find_claude() -> Option<PathBuf> {
 }
 
 /// Claude Code keeps a project's sessions in ~/.claude/projects/<path with non-alphanumerics as '-'>.
-fn sessions_store() -> Option<PathBuf> {
-    let encoded: String = SESSIONS_DIR.chars().map(|c| if c.is_ascii_alphanumeric() { c } else { '-' }).collect();
+fn sessions_store(folder: &std::path::Path) -> Option<PathBuf> {
+    let encoded: String =
+        folder.to_string_lossy().chars().map(|c| if c.is_ascii_alphanumeric() { c } else { '-' }).collect();
     Some(PathBuf::from(std::env::var_os("USERPROFILE")?).join(".claude").join("projects").join(encoded))
 }
 
@@ -111,7 +224,10 @@ async fn spawn(app: &AppHandle, window: &str, resume: Option<String>) -> Result<
     let claude = find_claude().ok_or(
         "Claude Code (claude.exe) wasn't found. Install it from https://claude.com/claude-code and sign in once in a terminal.",
     )?;
-    std::fs::create_dir_all(SESSIONS_DIR).map_err(|e| format!("Could not create {SESSIONS_DIR}: {e}"))?;
+    let hub = app.state::<ClaudeHub>();
+    let folder = hub.folder(app, window);
+    std::fs::create_dir_all(&folder).map_err(|e| format!("Could not create {}: {e}", folder.display()))?;
+    write_starter_notes(&folder, &hub.context(window));
 
     // Tableboat's MCP server, started on first use.
     let (port, token) = {
@@ -136,7 +252,7 @@ async fn spawn(app: &AppHandle, window: &str, resume: Option<String>) -> Result<
     std::fs::write(&config_path, config.to_string()).map_err(|e| e.to_string())?;
 
     let mut cmd = Command::new(&claude);
-    cmd.current_dir(SESSIONS_DIR)
+    cmd.current_dir(&folder)
         .args(["-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose"])
         .arg("--include-partial-messages")
         .arg("--mcp-config")
@@ -236,7 +352,7 @@ pub fn claude_status(window: tauri::Window, hub: tauri::State<'_, ClaudeHub>) ->
         path: path.map(|p| p.display().to_string()),
         running: w.map(|w| w.proc.is_some()).unwrap_or(false),
         session: w.and_then(|w| w.claude_session.clone()),
-        folder: SESSIONS_DIR.into(),
+        folder: w.and_then(|w| w.folder.clone()).unwrap_or_else(|| sessions_base().join("general")).display().to_string(),
         default_model: claude_default_model(),
     }
 }
@@ -251,7 +367,9 @@ pub async fn claude_send(
     context: AiContext,
 ) -> Result<(), String> {
     let label = window.label().to_string();
-    hub.set_context(&label, context);
+    if hub.set_context(&app, &label, context) {
+        let _ = app.emit_to(&label, "claude:reset", ());
+    }
     let needs_start = {
         let mut windows = hub.windows.lock().unwrap();
         let w = windows.entry(label.clone()).or_default();
@@ -306,8 +424,11 @@ pub async fn claude_new(window: tauri::Window, hub: tauri::State<'_, ClaudeHub>,
 
 /// The window's current connection, database, open table and editor SQL (for get_context).
 #[tauri::command]
-pub fn claude_set_context(window: tauri::Window, hub: tauri::State<'_, ClaudeHub>, context: AiContext) {
-    hub.set_context(window.label(), context);
+pub fn claude_set_context(app: AppHandle, window: tauri::Window, hub: tauri::State<'_, ClaudeHub>, context: AiContext) {
+    // Another connection in this window: its own project, so the pane starts a fresh chat.
+    if hub.set_context(&app, window.label(), context) {
+        let _ = app.emit_to(window.label(), "claude:reset", ());
+    }
 }
 
 #[tauri::command]
@@ -341,10 +462,10 @@ fn first_user_text(v: &Value) -> Option<String> {
     (!t.is_empty()).then(|| t.chars().take(90).collect())
 }
 
-/// Past chats started in the sessions folder, newest first.
+/// Past chats of the window's connection (its project folder), newest first.
 #[tauri::command]
-pub fn claude_sessions() -> Vec<SessionEntry> {
-    let Some(dir) = sessions_store() else { return vec![] };
+pub fn claude_sessions(app: AppHandle, window: tauri::Window, hub: tauri::State<'_, ClaudeHub>) -> Vec<SessionEntry> {
+    let Some(dir) = sessions_store(&hub.folder(&app, window.label())) else { return vec![] };
     let Ok(entries) = std::fs::read_dir(&dir) else { return vec![] };
     let mut out: Vec<SessionEntry> = entries
         .filter_map(Result::ok)
@@ -369,11 +490,17 @@ pub fn claude_sessions() -> Vec<SessionEntry> {
 
 /// A past chat's messages (same shape as live events), for showing it before resuming.
 #[tauri::command]
-pub fn claude_session_messages(id: String) -> Result<Vec<Value>, String> {
+pub fn claude_session_messages(
+    app: AppHandle,
+    window: tauri::Window,
+    hub: tauri::State<'_, ClaudeHub>,
+    id: String,
+) -> Result<Vec<Value>, String> {
     if !id.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
         return Err("Invalid session id.".into());
     }
-    let path = sessions_store().ok_or("No profile folder.")?.join(format!("{id}.jsonl"));
+    let folder = hub.folder(&app, window.label());
+    let path = sessions_store(&folder).ok_or("No profile folder.")?.join(format!("{id}.jsonl"));
     let file = std::fs::File::open(&path).map_err(|e| format!("Could not open the chat: {e}"))?;
     let mut out: Vec<Value> = BufReader::new(file)
         .lines()
@@ -386,4 +513,22 @@ pub fn claude_session_messages(id: String) -> Result<Vec<Value>, String> {
         out.drain(..out.len() - 400);
     }
     Ok(out)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::folder_name;
+
+    #[test]
+    fn folder_names_are_safe_and_readable() {
+        assert_eq!(folder_name("logs-db (local Mongo)"), "logs-db-local-mongo");
+        assert_eq!(folder_name("  Shop prod / EU  "), "shop-prod-eu");
+        assert_eq!(folder_name("local"), "local");
+        assert_eq!(folder_name("..\\..\\Windows"), "windows");
+        assert_eq!(folder_name("général"), "g-n-ral");
+        assert_eq!(folder_name("???"), "connection-db");
+        assert_eq!(folder_name("General"), "general-db");
+        assert_eq!(folder_name("CON"), "con-db");
+        assert!(folder_name(&"x".repeat(200)).len() <= 60);
+    }
 }

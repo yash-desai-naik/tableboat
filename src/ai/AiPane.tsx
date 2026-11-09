@@ -12,6 +12,7 @@ import {
   onExit,
   onPermission,
   openPastChat,
+  resetChat,
   send,
   stop,
   useChat,
@@ -34,6 +35,7 @@ export function currentContext(): AiContext {
   const tab = activeTab();
   return {
     sessionId: info?.sessionId ?? null,
+    connectionId: info?.connection.id ?? null,
     connectionName: info ? displayName(info.connection) : null,
     engine,
     database: engine === "sqlite" ? "main" : getWorkspace().database,
@@ -64,10 +66,18 @@ export function AiPane({ onClose }: { onClose: () => void }) {
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Keep Claude's view current as the connection, database or tab changes.
+  // Keep Claude's view current as the connection, database or tab changes. A new connection
+  // also means a new project folder, so the status (folder shown) is read again.
+  const connectionId = session.status === "open" ? session.info.connection.id : null;
   useEffect(() => {
     void claudeApi.setContext(currentContext());
   }, [session, ws.database, ws.activeId]);
+  useEffect(() => {
+    void claudeApi
+      .setContext(currentContext())
+      .then(() => claudeApi.status())
+      .then(setStatus);
+  }, [connectionId]);
 
   useEffect(() => {
     void claudeApi.status().then(setStatus);
@@ -77,6 +87,8 @@ export function AiPane({ onClose }: { onClose: () => void }) {
     void win.listen<Record<string, unknown>>("claude:event", (e) => applyEvent(e.payload, true));
     void win.listen<{ id: string; toolName: string; input: Record<string, unknown> }>("claude:permission", (e) => onPermission(e.payload));
     void win.listen<{ stderr: string }>("claude:exit", (e) => onExit(e.payload.stderr));
+    // Another connection in this window: its own Claude Code project, so a fresh chat.
+    void win.listen("claude:reset", () => resetChat());
   }, []);
 
   // Follow new output.
@@ -184,8 +196,9 @@ export function AiPane({ onClose }: { onClose: () => void }) {
             <ClaudeMark size={30} />
             <p className="ai-empty-title">Ask about your database, or have Claude write SQL.</p>
             <p className="ai-empty-note">
-              Claude Code runs in <code>{status.folder}</code>. It can read your schema and run read-only queries;
-              anything else asks you first.
+              {session.status === "open" ? "This connection's" : "General"} Claude Code project:{" "}
+              <code>{status.folder}</code> (chats and the CLAUDE.md notes there are kept for this connection). It can read
+              your schema and run read-only queries; anything else asks you first.
             </p>
             <div className="ai-suggestions">
               {["What tables are in this database?", "Explain the SQL in my editor", "Write a query for the open table's most recent rows"].map((s) => (

@@ -18,6 +18,7 @@ import { lastConnection } from "../lib/persist";
 import { getSettings } from "../lib/settings";
 import { Dialog } from "../shell/Dialog";
 import { Menu, type MenuItem } from "../shell/Menu";
+import { PencilIcon } from "../shell/Icons";
 import { ConnectionForm } from "./ConnectionForm";
 
 type FormState =
@@ -182,7 +183,7 @@ export function ConnectionList() {
       { label: "Connect", hint: "Enter", onSelect: () => void open(c) },
       { label: "Connect in New Window", onSelect: () => void api.newWindow(c.id) },
       "separator",
-      { label: "Edit…", onSelect: () => setForm({ mode: "edit", summary: c }) },
+      { label: "Edit…", hint: "F2", onSelect: () => setForm({ mode: "edit", summary: c }) },
       {
         label: "Duplicate",
         onSelect: async () => {
@@ -220,6 +221,12 @@ export function ConnectionList() {
     } else if (e.key === "Delete") {
       const c = filtered[index];
       if (c) void remove(c);
+    } else if (e.key === "F2") {
+      const c = filtered[index];
+      if (c) {
+        e.preventDefault();
+        setForm({ mode: "edit", summary: c });
+      }
     }
   }
 
@@ -323,12 +330,24 @@ export function ConnectionList() {
                   </span>
                 )}
                 {isBusy && <span className="conn-busy">Connecting…</span>}
+                <button
+                  className="icon-btn small conn-edit"
+                  title="Edit this connection"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelected(c.id);
+                    setForm({ mode: "edit", summary: c });
+                  }}
+                  onDoubleClick={(e) => e.stopPropagation()}
+                >
+                  <PencilIcon size={14} />
+                </button>
               </div>
             );
           })}
         </div>
         <div className="conn-hint muted">
-          Double-click or Enter to connect · right-click for more · passwords are kept in Windows Credential Manager
+          Double-click or Enter to connect · ✎ or F2 to edit · right-click for more · passwords are kept in Windows Credential Manager
         </div>
       </div>
 
