@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 
 // Tableboat's own 16 px outline icons (1.5 px stroke). Window caption glyphs are 10 px
 // with 1 px strokes, drawn on whole pixels so they stay crisp at any scaling.
@@ -116,19 +116,34 @@ export const CloseGlyph = () => (
   </Caption>
 );
 
-/** The app mark: a boat whose sail is a small table. */
+/** The app mark (same drawing as src-tauri/app-icon.svg): a boat whose sail is a table. */
 export function AppMark({ size = 16 }: IconProps) {
+  const id = useId();
   return (
     <svg width={size} height={size} viewBox="0 0 1024 1024" aria-hidden="true">
-      <rect x="64" y="64" width="896" height="896" rx="200" fill="#d97757" />
-      <path d="M500 220 L500 640 L250 640 Z" fill="#fff" />
-      <rect x="540" y="250" width="230" height="56" rx="10" fill="#fff" />
-      <rect x="540" y="340" width="230" height="40" rx="8" fill="#f8ddd0" />
-      <rect x="540" y="410" width="230" height="40" rx="8" fill="#f8ddd0" />
-      <rect x="540" y="480" width="230" height="40" rx="8" fill="#f8ddd0" />
-      <rect x="540" y="550" width="230" height="40" rx="8" fill="#f8ddd0" />
-      <rect x="512" y="200" width="16" height="470" rx="8" fill="#fff" />
-      <path d="M190 690 L834 690 L760 800 L264 800 Z" fill="#4a2416" />
+      <defs>
+        <linearGradient id={`${id}rows`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#f29a72" />
+          <stop offset="1" stopColor="#cc5f36" />
+        </linearGradient>
+        <linearGradient id={`${id}hull`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#b4492a" />
+          <stop offset="1" stopColor="#7f3015" />
+        </linearGradient>
+        <mask id={`${id}cut`}>
+          <rect width="1024" height="1024" fill="#fff" />
+          <rect x="372" y="160" width="34" height="540" fill="#000" />
+        </mask>
+      </defs>
+      <rect x="176" y="24" width="48" height="712" rx="24" fill="#b04722" />
+      <rect x="250" y="34" width="260" height="104" rx="26" fill="#b04722" />
+      <g fill={`url(#${id}rows)`} mask={`url(#${id}cut)`}>
+        <rect x="250" y="164" width="400" height="104" rx="26" />
+        <rect x="250" y="294" width="530" height="104" rx="26" />
+        <rect x="250" y="424" width="650" height="104" rx="26" />
+        <rect x="250" y="554" width="752" height="104" rx="26" />
+      </g>
+      <path d="M22 700 H1002 L886 946 Q866 990 818 990 H206 Q158 990 138 946 Z" fill={`url(#${id}hull)`} />
     </svg>
   );
 }

@@ -1,13 +1,30 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
-  <rect x="64" y="64" width="896" height="896" rx="200" fill="#d97757"/>
-  <!-- sail drawn as a small table: header + rows -->
-  <path d="M500 220 L500 640 L250 640 Z" fill="#ffffff"/>
-  <rect x="540" y="250" width="230" height="56" rx="10" fill="#ffffff"/>
-  <rect x="540" y="340" width="230" height="40" rx="8" fill="#f8ddd0"/>
-  <rect x="540" y="410" width="230" height="40" rx="8" fill="#f8ddd0"/>
-  <rect x="540" y="480" width="230" height="40" rx="8" fill="#f8ddd0"/>
-  <rect x="540" y="550" width="230" height="40" rx="8" fill="#f8ddd0"/>
-  <rect x="512" y="200" width="16" height="470" rx="8" fill="#ffffff"/>
+  <!-- No tile: the boat fills the icon and works on light and dark backgrounds. -->
+  <defs>
+    <linearGradient id="rows" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f29a72"/>
+      <stop offset="1" stop-color="#cc5f36"/>
+    </linearGradient>
+    <linearGradient id="hull" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#b4492a"/>
+      <stop offset="1" stop-color="#7f3015"/>
+    </linearGradient>
+    <!-- the table's column line is a real gap -->
+    <mask id="cut">
+      <rect width="1024" height="1024" fill="#fff"/>
+      <rect x="372" y="160" width="34" height="540" fill="#000"/>
+    </mask>
+  </defs>
+  <!-- mast -->
+  <rect x="176" y="24" width="48" height="712" rx="24" fill="#b04722"/>
+  <!-- sail: a table, dark header row, rows growing longer towards the boom -->
+  <rect x="250" y="34" width="260" height="104" rx="26" fill="#b04722"/>
+  <g fill="url(#rows)" mask="url(#cut)">
+    <rect x="250" y="164" width="400" height="104" rx="26"/>
+    <rect x="250" y="294" width="530" height="104" rx="26"/>
+    <rect x="250" y="424" width="650" height="104" rx="26"/>
+    <rect x="250" y="554" width="752" height="104" rx="26"/>
+  </g>
   <!-- hull -->
-  <path d="M190 690 L834 690 L760 800 L264 800 Z" fill="#4a2416"/>
+  <path d="M22 700 H1002 L886 946 Q866 990 818 990 H206 Q158 990 138 946 Z" fill="url(#hull)"/>
 </svg>
