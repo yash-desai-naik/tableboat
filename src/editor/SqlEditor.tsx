@@ -20,11 +20,10 @@ import {
   rectangularSelection,
   crosshairCursor,
 } from "@codemirror/view";
-// Only the dialects Tableboat uses, so the other formatters aren't bundled.
-import { formatDialect, mariadb, mysql, sqlite } from "sql-formatter";
 import { queryApi } from "../lib/query";
 import { tabClosedHooks } from "../lib/workspace";
 import { schemaCacheClearers } from "./schemaCache";
+import { describeFailures, formatText } from "./format";
 import { editorChanged, editors, hiddenEditorText, type EditorHandle } from "./registry";
 import { splitStatements, statementAt, type Dialect, type Statement } from "./splitter";
 import { editorTheme } from "./theme";
@@ -193,25 +192,37 @@ export function SqlEditor({ tabId, initialText, engine, sessionId, database, dar
       allStatements() {
         return splitStatements(view.state.doc.toString(), dialect).map((s) => s.text);
       },
-      format() {
+      async format(scope = "current") {
         const s = view.state;
-        const fmtDialect = engine === "sqlite" ? sqlite : engine === "mariadb" ? mariadb : mysql;
-        if (isMongo) return "Formatting is for SQL; MongoDB queries are left as written.";
         const sel = s.selection.main;
-        let from = sel.from;
-        let to = sel.to;
-        if (sel.empty) {
-          const stmt = statementAt(s.field(stmtField, false) ?? splitStatements(s.doc.toString(), dialect), sel.head);
-          if (!stmt) return null;
-          from = stmt.from;
-          to = stmt.to;
+        let from = 0;
+        let to = s.doc.length;
+        if (scope === "current") {
+          from = sel.from;
+          to = sel.to;
+          if (sel.empty) {
+            const stmt = statementAt(s.field(stmtField, false) ?? splitStatements(s.doc.toString(), dialect), sel.head);
+            if (!stmt) return null;
+            from = stmt.from;
+            to = stmt.to;
+          }
         }
+        const src = s.sliceDoc(from, to);
         try {
-          const formatted = formatDialect(s.sliceDoc(from, to), { dialect: fmtDialect, keywordCase: "upper", tabWidth: 4 });
-          view.dispatch({ changes: { from, to, insert: formatted }, selection: { anchor: from + formatted.length } });
-          return null;
+          const outcome = await formatText(src, dialect, engine, s.doc.lineAt(from).number);
+          // Formatting MongoDB can wait for Prettier to load: don't overwrite newer typing.
+          if (view.state.doc !== s.doc) return "The text changed while formatting; format again.";
+          if (outcome.text !== src) {
+            view.dispatch({
+              changes: { from, to, insert: outcome.text },
+              selection: scope === "current" ? { anchor: from + outcome.text.length } : undefined,
+              userEvent: "input.format",
+              scrollIntoView: true,
+            });
+          }
+          return describeFailures(outcome);
         } catch (err) {
-          return err instanceof Error ? err.message : String(err);
+          return `Couldn't format: ${err instanceof Error ? err.message.split("\n")[0] : String(err)}`;
         }
       },
       focus() {

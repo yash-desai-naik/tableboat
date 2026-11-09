@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { cancelActiveRun, formatActive, runAll, runCurrent } from "../editor/actions";
+import { cancelActiveRun, FORMAT_RESULT_EVENT, formatActive, runAll, runCurrent, type FormatResult } from "../editor/actions";
 import { SqlEditor } from "../editor/SqlEditor";
 import type { SessionInfo } from "../lib/connections";
 import { dialectOf, getRunState, isReadOnlyRun, rerunTab, useRunState } from "../lib/query";
@@ -26,6 +26,15 @@ export function QueryView({ info, tab }: { info: SessionInfo; tab: QueryTab }) {
   const engine = info.server.engine ?? info.connection.engine;
   const dark = document.documentElement.dataset.theme === "dark";
   const [formatError, setFormatError] = useState<string | null>(null);
+  // Format runs from the button, Shift+Alt+F or the palette: show its error here either way.
+  useEffect(() => {
+    const onResult = (e: Event) => {
+      const { tabId, error } = (e as CustomEvent<FormatResult>).detail;
+      if (tabId === tab.id) setFormatError(error);
+    };
+    window.addEventListener(FORMAT_RESULT_EVENT, onResult);
+    return () => window.removeEventListener(FORMAT_RESULT_EVENT, onResult);
+  }, [tab.id]);
   const container = useRef<HTMLDivElement>(null);
   const drag = useRef<{ y: number; h: number } | null>(null);
 
@@ -43,18 +52,16 @@ export function QueryView({ info, tab }: { info: SessionInfo; tab: QueryTab }) {
             Cancel
           </button>
         )}
-        {engine !== "mongodb" && (
-          <button
-            className="btn small-btn"
-            title="Format the selection or the statement under the cursor (Shift+Alt+F)"
-            onClick={() => setFormatError(formatActive())}
-          >
-            Format
-          </button>
-        )}
+        <button
+          className="btn small-btn"
+          title="Format the selection or the statement under the cursor (Shift+Alt+F). Ctrl+Shift+Alt+F formats everything."
+          onClick={() => void formatActive()}
+        >
+          Format
+        </button>
         {formatError && (
           <span className="editor-error" title={formatError}>
-            Couldn't format: {formatError.split("\n")[0]}
+            {formatError.split("\n")[0]}
           </span>
         )}
         <span className="spacer" />

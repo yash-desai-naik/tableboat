@@ -3,7 +3,11 @@ export interface EditorHandle {
   /** Selected text, or the statement under the cursor: split into statements. */
   currentStatements(): string[];
   allStatements(): string[];
-  format(): string | null;
+  /**
+   * Format the selection, else the statement under the cursor ("current"), or every statement
+   * ("all"). Resolves to an error message, or null when it worked.
+   */
+  format(scope?: "current" | "all"): Promise<string | null>;
   focus(): void;
   insert(text: string): void;
   /** The whole editor text. */

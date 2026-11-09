@@ -34,12 +34,14 @@ body.resizing-v * {
   border-bottom: 1px solid var(--border);
 }
 
+/* Takes the space it needs (wrapping to its own row in a narrow window); hover shows it all. */
 .editor-error {
-  max-width: 50%;
+  flex: 1 1 260px;
+  min-width: 0;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  color: #e5534b;
+  color: var(--danger);
   font-size: var(--fs-md);
 }
 

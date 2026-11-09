@@ -41,10 +41,18 @@ export function cancelActiveRun() {
   if (state.running && state.runId) void queryApi.cancel(state.runId);
 }
 
-export function formatActive(): string | null {
+/** Raised after a format, so the tab's toolbar can show (or clear) an error. */
+export const FORMAT_RESULT_EVENT = "tableboat:format-result";
+export type FormatResult = { tabId: string; error: string | null };
+
+/** Format the selection or the statement under the cursor ("current"), or the whole editor ("all"). */
+export async function formatActive(scope: "current" | "all" = "current"): Promise<string | null> {
   const tab = activeQueryTab();
-  if (!tab) return null;
-  return editors.get(tab.id)?.format() ?? null;
+  const editor = tab ? editors.get(tab.id) : undefined;
+  if (!tab || !editor) return null;
+  const error = await editor.format(scope);
+  window.dispatchEvent(new CustomEvent<FormatResult>(FORMAT_RESULT_EVENT, { detail: { tabId: tab.id, error } }));
+  return error;
 }
 
 /** Open a new SQL tab (optionally with text) and focus it. */
