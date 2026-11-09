@@ -23,7 +23,7 @@ import { displayName } from "../lib/connections";
 import { getSession, useSession } from "../lib/session";
 import { useSettings } from "../lib/settings";
 import { activeTab, getWorkspace, useWorkspace } from "../lib/workspace";
-import { CloseSmallIcon } from "../shell/Icons";
+import { CloseSmallIcon, DatabaseIcon } from "../shell/Icons";
 import { Menu, type MenuItem } from "../shell/Menu";
 
 /** What Claude can see through get_context, read fresh from the app's state. */
@@ -44,7 +44,7 @@ export function currentContext(): AiContext {
 
 let listening = false;
 
-/** The Claude Code chat in the right pane. */
+/** The Claude Code chat in the right pane (laid out like Claude Code's VS Code panel). */
 export function AiPane({ onClose }: { onClose: () => void }) {
   const chat = useChat();
   const session = useSession();
@@ -83,7 +83,15 @@ export function AiPane({ onClose }: { onClose: () => void }) {
   useLayoutEffect(() => {
     const el = listRef.current;
     if (el && el.scrollHeight - el.scrollTop - el.clientHeight < 160) el.scrollTop = el.scrollHeight;
-  }, [chat.items]);
+  }, [chat.items, chat.running]);
+
+  // The input grows with its text, up to a limit.
+  useLayoutEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 220)}px`;
+  }, [draft]);
 
   function submit() {
     const text = draft.trim();
@@ -107,40 +115,42 @@ export function AiPane({ onClose }: { onClose: () => void }) {
     });
   }
 
+  const firstUser = chat.items.find((i) => i.kind === "user");
+  const title = firstUser?.kind === "user" ? firstUser.text.replace(/\s+/g, " ") : "New chat";
+  const pending = chat.items.some((i) => i.kind === "permission" && i.state === "pending");
+  const sees = session.status === "open" ? `${displayName(session.info.connection)}${ws.database ? ` · ${ws.database}` : ""}` : null;
+
   return (
-    <div className="ai">
-      <div className="pane-header">
-        <span className="pane-title ai-title">
+    <div
+      className="ai"
+      onKeyDown={(e) => {
+        // Esc stops Claude (unless a permission prompt is waiting: that handles its own keys).
+        if (e.key === "Escape" && chat.running && !pending) {
+          e.preventDefault();
+          void stop();
+        }
+      }}
+    >
+      <div className="ai-head">
+        <button
+          className="ai-chat-title"
+          title="Earlier chats"
+          onClick={(e) => {
+            const r = e.currentTarget.getBoundingClientRect();
+            void pastChats(r.left, r.bottom + 4);
+          }}
+        >
           <ClaudeMark />
-          Claude
-        </span>
-        {status?.installed && (
-          <span
-            className="ai-model"
-            title={model ? `Model: ${model}${chat.model ? "" : " (used from your next message)"}\nChange it in Settings › Claude model` : "Claude Code's default model\nChange it in Settings › Claude model"}
-          >
-            {model ? modelLabel(model) : "Default model"}
-          </span>
-        )}
+          <span className="ai-chat-title-text">{title}</span>
+          <ChevronDown />
+        </button>
         <span className="spacer" />
-        <span className="ai-head-actions">
-          <button
-            className="icon-btn small"
-            title="Earlier chats"
-            onClick={(e) => {
-              const r = e.currentTarget.getBoundingClientRect();
-              void pastChats(r.left - 180, r.bottom + 4);
-            }}
-          >
-            ⟲
-          </button>
-          <button className="icon-btn small" title="New chat" onClick={() => void newChat()}>
-            +
-          </button>
-          <button className="icon-btn small" title="Close (Ctrl+Alt+B)" onClick={onClose}>
-            <CloseSmallIcon />
-          </button>
-        </span>
+        <button className="icon-btn small" title="New chat" onClick={() => void newChat()}>
+          <PlusIcon />
+        </button>
+        <button className="icon-btn small" title="Close (Ctrl+Alt+B)" onClick={onClose}>
+          <CloseSmallIcon />
+        </button>
       </div>
 
       <div className="ai-list" ref={listRef}>
@@ -151,14 +161,15 @@ export function AiPane({ onClose }: { onClose: () => void }) {
         )}
         {chat.items.length === 0 && status?.installed && (
           <div className="ai-empty">
-            <p>Ask about your database, or have Claude write SQL.</p>
-            <p className="muted small">
-              Claude Code runs in <code>{status.folder}</code>. It can read your schema and run read-only queries; anything
-              else asks you first.
+            <ClaudeMark size={30} />
+            <p className="ai-empty-title">Ask about your database, or have Claude write SQL.</p>
+            <p className="ai-empty-note">
+              Claude Code runs in <code>{status.folder}</code>. It can read your schema and run read-only queries;
+              anything else asks you first.
             </p>
             <div className="ai-suggestions">
               {["What tables are in this database?", "Explain the SQL in my editor", "Write a query for the open table's most recent rows"].map((s) => (
-                <button key={s} className="btn small-btn" onClick={() => void send(s, currentContext())}>
+                <button key={s} className="ai-suggestion" onClick={() => void send(s, currentContext())}>
                   {s}
                 </button>
               ))}
@@ -168,40 +179,113 @@ export function AiPane({ onClose }: { onClose: () => void }) {
         {chat.items.map((item, i) => (
           <Item key={i} item={item} />
         ))}
-        {chat.running && <div className="ai-working">Claude is working…</div>}
+        {chat.running && !pending && <Working />}
       </div>
 
       <div className="ai-compose">
-        <textarea
-          ref={inputRef}
-          className="input ai-input"
-          rows={3}
-          placeholder={session.status === "open" ? "Ask Claude…  (Enter to send, Shift+Enter for a new line)" : "Ask Claude…"}
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
-              e.preventDefault();
-              submit();
-            }
-          }}
-          disabled={status?.installed === false}
-        />
-        <div className="ai-compose-bar">
-          <span className="muted small">{session.status === "open" ? `Sees: ${displayName(session.info.connection)}${ws.database ? ` · ${ws.database}` : ""}` : "Not connected"}</span>
-          <span className="spacer" />
-          {chat.running ? (
-            <button className="btn small-btn" onClick={() => void stop()}>
-              Stop
-            </button>
-          ) : (
-            <button className="btn primary small-btn" onClick={submit} disabled={!draft.trim()}>
-              Send
-            </button>
-          )}
+        <div className="ai-composer" onClick={() => inputRef.current?.focus()}>
+          <textarea
+            ref={inputRef}
+            className="ai-input"
+            rows={1}
+            placeholder={status?.installed === false ? "Claude Code isn't installed" : "Ask Claude…  (Enter to send, Shift+Enter for a new line)"}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                e.preventDefault();
+                submit();
+              }
+            }}
+            disabled={status?.installed === false}
+          />
+          <div className="ai-composer-bar">
+            <span className="ai-chip" title={sees ? `Claude sees ${sees}` : "Not connected to a database"}>
+              <DatabaseIcon size={12} />
+              <span className="ai-chip-text">{sees ?? "Not connected"}</span>
+            </span>
+            <span className="spacer" />
+            {status?.installed && (
+              <span
+                className="ai-chip ai-model"
+                title={model ? `Model: ${model}${chat.model ? "" : " (used from your next message)"}\nChange it in Settings › Claude model` : "Claude Code's default model\nChange it in Settings › Claude model"}
+              >
+                {model ? modelLabel(model) : "Default model"}
+              </span>
+            )}
+            {chat.running ? (
+              <button
+                className="ai-send stop"
+                title="Stop (Esc)"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void stop();
+                }}
+              >
+                <StopIcon />
+              </button>
+            ) : (
+              <button
+                className="ai-send"
+                title="Send (Enter)"
+                disabled={!draft.trim()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  submit();
+                }}
+              >
+                <ArrowUpIcon />
+              </button>
+            )}
+          </div>
         </div>
       </div>
       {menu && <Menu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
+    </div>
+  );
+}
+
+const WORKING_WORDS = ["Thinking", "Reading the schema", "Querying", "Working"];
+
+/** The live "Claude is working" row: spinning mark, elapsed time, how to stop. */
+function Working() {
+  const [started] = useState(() => Date.now());
+  const [now, setNow] = useState(started);
+  useEffect(() => {
+    const t = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(t);
+  }, []);
+  const secs = Math.floor((now - started) / 1000);
+  return (
+    <div className="ai-working">
+      <ClaudeMark spin />
+      <span className="ai-working-word">{WORKING_WORDS[Math.floor(secs / 6) % WORKING_WORDS.length]}…</span>
+      <span className="muted">
+        {secs}s · Esc to stop
+      </span>
+    </div>
+  );
+}
+
+/** Friendly names for Tableboat's own tools. */
+const TOOL_NAMES: Record<string, string> = {
+  get_context: "Context",
+  get_schema: "Schema",
+  run_read_query: "Read query",
+  execute_sql: "Execute SQL",
+};
+
+function toolTitle(name: string): string {
+  const own = /^tableboat › (.+)$/.exec(name) ?? /^mcp__tableboat__(.+)$/.exec(name);
+  return own ? (TOOL_NAMES[own[1]] ?? own[1]) : name;
+}
+
+/** One timeline step: a dot in the left gutter, then the content. */
+function Step({ dot, children }: { dot: "text" | "ok" | "error" | "running"; children: ReactNode }) {
+  return (
+    <div className="ai-step">
+      <span className={`ai-dot ${dot}`} />
+      <div className="ai-step-body">{children}</div>
     </div>
   );
 }
@@ -210,58 +294,99 @@ function Item({ item }: { item: ChatItem }) {
   const [open, setOpen] = useState(false);
   switch (item.kind) {
     case "user":
-      return <div className="ai-msg user">{item.text}</div>;
+      return <div className="ai-user">{item.text}</div>;
     case "assistant":
       return (
-        <div className="ai-msg assistant">
-          <Markdown text={item.text} />
-          {item.streaming && <span className="ai-caret" />}
-        </div>
+        <Step dot="text">
+          <div className="ai-msg">
+            <Markdown text={item.text} />
+            {item.streaming && <span className="ai-caret" />}
+          </div>
+        </Step>
       );
     case "tool": {
       // Claude Code's own tool lookup is internal noise.
       if (item.name === "ToolSearch") return null;
       const summary = toolSummary(item.input);
+      const dot = item.result === undefined ? "running" : item.isError ? "error" : "ok";
       return (
-        <div className={item.isError ? "ai-tool error" : "ai-tool"}>
-          <button className="ai-tool-head" onClick={() => setOpen((o) => !o)}>
-            <span>{item.result === undefined ? "◌" : item.isError ? "✕" : "✓"}</span>
-            <span className="ai-tool-name">{item.name}</span>
+        <Step dot={dot}>
+          <button className="ai-tool-head" onClick={() => setOpen((o) => !o)} title={open ? "Hide details" : "Show details"}>
+            <span className="ai-tool-name">{toolTitle(item.name)}</span>
             {summary && <span className="ai-tool-sum">{summary}</span>}
           </button>
-          {open && item.result !== undefined && <pre className="ai-tool-result">{item.result.slice(0, 6000)}</pre>}
-        </div>
+          {open && (
+            <div className="ai-io">
+              <div className="ai-io-row">
+                <span className="ai-io-label">IN</span>
+                <pre>{toolInput(item.input)}</pre>
+              </div>
+              {item.result !== undefined && (
+                <div className="ai-io-row">
+                  <span className="ai-io-label">OUT</span>
+                  <pre className={item.isError ? "error" : undefined}>{item.result.slice(0, 6000) || "(no output)"}</pre>
+                </div>
+              )}
+            </div>
+          )}
+        </Step>
       );
     }
     case "permission":
       return <Permission item={item} />;
     case "done":
-      return <div className="ai-done">{item.note ?? (item.ms !== undefined ? `${(item.ms / 1000).toFixed(1)} s` : "")}</div>;
+      return item.note ? (
+        <div className="ai-note-line">{item.note}</div>
+      ) : (
+        <div className="ai-done">{item.ms !== undefined ? `${(item.ms / 1000).toFixed(1)} s` : ""}</div>
+      );
     case "error":
-      return <div className="ai-note error">{item.text}</div>;
+      return (
+        <Step dot="error">
+          <div className="ai-error-text">{item.text}</div>
+        </Step>
+      );
   }
 }
 
 function Permission({ item }: { item: Extract<ChatItem, { kind: "permission" }> }) {
-  const name = item.toolName.replace(/^mcp__tableboat__/, "tableboat › ");
+  const name = toolTitle(item.toolName.replace(/^mcp__tableboat__/, "tableboat › "));
   const detail =
     (item.input.sql as string) ?? (item.input.command as string) ?? (item.input.file_path as string) ?? JSON.stringify(item.input, null, 2);
+  const first = useRef<HTMLButtonElement>(null);
+  const pending = item.state === "pending";
+  useEffect(() => {
+    if (pending) first.current?.focus();
+  }, [pending]);
+  const choose = (allow: boolean, always: boolean) => void answerPermission(item.id, allow, always);
+  const question = /sql/i.test(item.toolName) ? "Run this SQL?" : `Allow Claude to use ${name}?`;
   return (
-    <div className={`ai-perm ${item.state}`}>
-      <div className="ai-perm-title">
-        {item.state === "pending" ? "Claude wants to use" : item.state === "allowed" ? "Allowed" : "Denied"} <b>{name}</b>
-      </div>
+    <div
+      className={`ai-perm ${item.state}`}
+      onKeyDown={(e) => {
+        if (!pending) return;
+        const k = e.key;
+        if (k === "1" || k === "2" || k === "3" || k === "Escape") {
+          e.preventDefault();
+          e.stopPropagation();
+          if (k === "1") choose(true, false);
+          else if (k === "2") choose(true, true);
+          else choose(false, false);
+        }
+      }}
+    >
+      <div className="ai-perm-title">{pending ? question : item.state === "allowed" ? `Allowed: ${name}` : `Denied: ${name}`}</div>
       <pre className="ai-perm-detail">{String(detail).slice(0, 4000)}</pre>
-      {item.state === "pending" && (
-        <div className="ai-perm-actions">
-          <button className="btn small-btn" onClick={() => void answerPermission(item.id, false, false)}>
-            Deny
+      {pending && (
+        <div className="ai-perm-options">
+          <button ref={first} className="ai-perm-option" onClick={() => choose(true, false)}>
+            <kbd>1</kbd> Yes
           </button>
-          <button className="btn small-btn" onClick={() => void answerPermission(item.id, true, true)} title="Don't ask again for this tool in this chat">
-            Always allow
+          <button className="ai-perm-option" onClick={() => choose(true, true)}>
+            <kbd>2</kbd> Yes, and don't ask again for {name} in this chat
           </button>
-          <button className="btn primary small-btn" onClick={() => void answerPermission(item.id, true, false)}>
-            Allow
+          <button className="ai-perm-option" onClick={() => choose(false, false)}>
+            <kbd>3</kbd> No <span className="muted">(Esc)</span>
           </button>
         </div>
       )}
@@ -270,14 +395,43 @@ function Permission({ item }: { item: Extract<ChatItem, { kind: "permission" }> 
 }
 
 /** A small starburst in Claude's clay colour, drawn here (not Anthropic's logo file). */
-function ClaudeMark() {
+function ClaudeMark({ size = 14, spin = false }: { size?: number; spin?: boolean }) {
   return (
-    <svg className="ai-mark" viewBox="0 0 16 16" aria-hidden="true">
+    <svg className={spin ? "ai-mark spin" : "ai-mark"} width={size} height={size} viewBox="0 0 16 16" aria-hidden="true">
       {[0, 30, 60, 90, 120, 150].map((a) => (
         <rect key={a} x="7.1" y="1" width="1.8" height="14" rx="0.9" transform={`rotate(${a} 8 8)`} />
       ))}
     </svg>
   );
+}
+
+const ChevronDown = () => (
+  <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+    <path d="M2 3.5 5 6.5 8 3.5" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+const PlusIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+    <path d="M7 2.5v9M2.5 7h9" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+  </svg>
+);
+const ArrowUpIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+    <path d="M7 11.5V2.8M3 6.6 7 2.6l4 4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+const StopIcon = () => (
+  <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+    <rect x="1" y="1" width="8" height="8" rx="1.5" fill="currentColor" />
+  </svg>
+);
+
+/** A tool's input for the IN box: SQL or a command as is, anything else as JSON. */
+function toolInput(input: unknown): string {
+  if (!input || typeof input !== "object") return String(input ?? "");
+  const i = input as Record<string, unknown>;
+  for (const k of ["sql", "query", "command"]) if (typeof i[k] === "string") return i[k] as string;
+  return JSON.stringify(input, null, 2);
 }
 
 function toolSummary(input: unknown): string {

@@ -13,7 +13,6 @@
     "core:window:allow-set-focus",
     "core:window:allow-set-title",
     "core:webview:allow-set-webview-zoom",
-    "window-state:default",
     "dialog:allow-open",
     "dialog:allow-save",
     "dialog:allow-message",

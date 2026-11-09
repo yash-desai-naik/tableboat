@@ -238,21 +238,40 @@ pub fn window_new(app: AppHandle, connect: Option<String>) -> Result<(), String>
         Some(id) if uuid::Uuid::parse_str(&id).is_ok() => format!("index.html?connect={id}"),
         _ => "index.html".to_string(),
     };
-    let mut builder = WebviewWindowBuilder::new(&app, &label, WebviewUrl::App(page.into()))
+    let window = WebviewWindowBuilder::new(&app, &label, WebviewUrl::App(page.into()))
         .title("Tableboat")
         .inner_size(1200.0, 780.0)
         .min_inner_size(720.0, 480.0)
         .decorations(false)
-        .visible(false);
-    // Cascade from the window that asked, so the new one doesn't sit exactly on top.
-    if let Some(main) = app.webview_windows().values().next() {
-        if let (Ok(pos), Ok(scale)) = (main.outer_position(), main.scale_factor()) {
-            let p = pos.to_logical::<f64>(scale);
-            builder = builder.position(p.x + 32.0, p.y + 32.0);
-        }
-    }
-    builder.build().map_err(|e| format!("Could not open a new window: {e}"))?;
+        .visible(false)
+        .build()
+        .map_err(|e| format!("Could not open a new window: {e}"))?;
+    // Same screen as the window that asked.
+    let monitor = app.webview_windows().values().find(|w| w.label() != label).and_then(|w| w.current_monitor().ok().flatten());
+    place_maximized(&window, monitor);
     Ok(())
+}
+
+/// Size a (still hidden) window to fit its screen's work area (the screen minus the taskbar),
+/// centered, then maximize it. Restoring it later gives that fitted, centered window,
+/// never one that hangs off the screen.
+pub fn place_maximized(window: &tauri::WebviewWindow, monitor: Option<tauri::Monitor>) {
+    let monitor = monitor
+        .or_else(|| window.current_monitor().ok().flatten())
+        .or_else(|| window.primary_monitor().ok().flatten());
+    if let Some(m) = monitor {
+        let area = m.work_area();
+        let (aw, ah) = (area.size.width as f64, area.size.height as f64);
+        // 85% of the work area, but never below the minimum size (720 x 480 at this scale).
+        let scale = m.scale_factor();
+        let w = (aw * 0.85).max(720.0 * scale).min(aw).round();
+        let h = (ah * 0.85).max(480.0 * scale).min(ah).round();
+        let x = area.position.x as f64 + ((aw - w) / 2.0).round();
+        let y = area.position.y as f64 + ((ah - h) / 2.0).round();
+        let _ = window.set_size(tauri::PhysicalSize::new(w as u32, h as u32));
+        let _ = window.set_position(tauri::PhysicalPosition::new(x as i32, y as i32));
+    }
+    let _ = window.maximize();
 }
 
 // ---------- database objects (sidebar, Ctrl+P) ----------

@@ -5,8 +5,6 @@
 :root {
   --font-ui: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
   --font-mono: "Cascadia Mono", "Cascadia Code", Consolas, monospace;
-  /* Claude's answers are set in a serif, like claude.ai. */
-  --font-serif: "Tiempos Text", Georgia, Cambria, "Times New Roman", serif;
   --ui-size: 13px;
   --radius-control: 6px;
   --radius-pill: 8px;

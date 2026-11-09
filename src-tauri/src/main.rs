@@ -10,7 +10,6 @@ mod settings;
 mod state;
 
 use tauri::{Manager, WindowEvent};
-use tauri_plugin_window_state::StateFlags;
 
 fn main() {
     tauri::Builder::default()
@@ -22,15 +21,13 @@ fn main() {
                 let _ = window.set_focus();
             }
         }))
-        // Restore size and position, but let the UI show the window once it has painted,
-        // so there is no white flash on start.
-        .plugin(
-            tauri_plugin_window_state::Builder::default()
-                .with_state_flags(StateFlags::all() & !StateFlags::VISIBLE)
-                .build(),
-        )
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
+            // Open maximized; "Restore Down" gives a window that fits the screen, centered.
+            // (The UI shows the window once it has painted, so there is no white flash.)
+            if let Some(main) = app.get_webview_window("main") {
+                commands::place_maximized(&main, None);
+            }
             conn::secrets::init()?;
             let dir = paths::data_dir(app.handle())?;
             app.manage(settings::SettingsStore::load(app.handle())?);
