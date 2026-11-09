@@ -10,6 +10,7 @@ import {
   MinimizeGlyph,
   PanelLeftIcon,
   PanelRightIcon,
+  NewWindowIcon,
   PlugIcon,
   RestoreGlyph,
 } from "./Icons";
@@ -25,6 +26,8 @@ interface TitleBarProps {
   onOpenPalette: () => void;
   onPillClick: (x: number, y: number) => void;
   onConnections: () => void;
+  /** Pick a connection to open in a new window (e.g. MySQL beside MongoDB). */
+  onConnectionsNewWindow: () => void;
 }
 
 /** Pick black or white text for a background colour, by WCAG contrast. */
@@ -43,7 +46,8 @@ function readableOn(hex: string): string {
  * (and double-click maximises); Windows Aero Snap works by dragging to the edges.
  */
 export function TitleBar(props: TitleBarProps) {
-  const { session, sidebarOn, aiOn, onToggleSidebar, onToggleAi, onOpenPalette, onPillClick, onConnections } = props;
+  const { session, sidebarOn, aiOn, onToggleSidebar, onToggleAi, onOpenPalette, onPillClick, onConnections, onConnectionsNewWindow } =
+    props;
   const [maximized, setMaximized] = useState(false);
 
   useEffect(() => {
@@ -77,6 +81,9 @@ export function TitleBar(props: TitleBarProps) {
         </button>
         <button className="icon-btn" title="Open or create a connection (Ctrl+Shift+K)" onClick={onConnections}>
           <PlugIcon />
+        </button>
+        <button className="icon-btn" title="Open a connection in a new window (Ctrl+Alt+K)" onClick={onConnectionsNewWindow}>
+          <NewWindowIcon />
         </button>
       </div>
 

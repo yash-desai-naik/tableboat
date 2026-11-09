@@ -102,6 +102,7 @@ export function App() {
               void api.toUrl(session.info.connection.id, false).then((u) => navigator.clipboard.writeText(u)),
           },
           { label: "Open in New Window", onSelect: () => void api.newWindow(session.info.connection.id) },
+          { label: "Open Another Connection in New Window…", hint: "Ctrl+Alt+K", onSelect: () => setSwitcher("window") },
           "separator",
           { label: "Switch Connection…", hint: "Ctrl+Shift+K", onSelect: () => setSwitcher("list") },
           { label: "New Connection…", onSelect: () => setSwitcher("new") },
@@ -134,6 +135,7 @@ export function App() {
         onOpenPalette={() => setPaletteOpen(true)}
         onPillClick={(x, y) => setPillMenu({ x, y })}
         onConnections={() => setSwitcher("list")}
+        onConnectionsNewWindow={() => setSwitcher("window")}
       />
 
       <div className="workspace">

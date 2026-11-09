@@ -5,7 +5,9 @@ import { readFileSync, writeFileSync } from "node:fs";
 
 const steps = JSON.parse(readFileSync(process.argv[2], "utf8"));
 const targets = await (await fetch("http://127.0.0.1:9222/json")).json();
-const page = targets.find((t) => t.type === "page");
+// The app's pages (skip WebView2's stray about:blank); CDP_PAGE=<n> picks the n-th window.
+const pages = targets.filter((t) => t.type === "page" && t.url.startsWith("http"));
+const page = pages[Number(process.env.CDP_PAGE ?? 0)] ?? targets.find((t) => t.type === "page");
 if (!page) throw new Error("no page target");
 const ws = new WebSocket(page.webSocketDebuggerUrl);
 await new Promise((r) => ws.addEventListener("open", r, { once: true }));

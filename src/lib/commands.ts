@@ -129,6 +129,13 @@ export function buildCommands(ctx: CommandContext): Command[] {
 
   const switcherCommands: Command[] = [
     { id: "connection.open", category: "Connection", title: "Open Connection…", keys: ["Ctrl+Shift+K"], run: () => uiActions.openConnections("list") },
+    {
+      id: "connection.openInNewWindow",
+      category: "Connection",
+      title: "Open Connection in New Window…",
+      keys: ["Ctrl+Alt+K"],
+      run: () => uiActions.openConnections("window"),
+    },
   ];
 
   const connectionCommands: Command[] = connected

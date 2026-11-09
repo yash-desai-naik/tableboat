@@ -13,10 +13,12 @@ import {
   type Secrets,
 } from "../lib/connections";
 import { connect, useSession } from "../lib/session";
+import { NewWindowIcon } from "../shell/Icons";
 import { ConnectionForm } from "./ConnectionForm";
 import { PasswordDialog, UrlDialog } from "./ConnectionList";
 
-export type SwitcherMode = "list" | "new" | "url";
+/** "list": open here (Ctrl+Enter = new window); "window": open in a new window (Ctrl+Enter = here). */
+export type SwitcherMode = "list" | "window" | "new" | "url";
 
 interface Props {
   initialMode: SwitcherMode;
@@ -43,6 +45,8 @@ export function ConnectionSwitcher({ initialMode, onClose }: Props) {
   );
   const newWindow = useRef(false);
   const [busy, setBusy] = useState<string | null>(null);
+  // In "window" mode Enter opens a new window and Ctrl+Enter opens here; otherwise the reverse.
+  const windowFirst = initialMode === "window";
 
   useEffect(() => {
     api
@@ -118,7 +122,7 @@ export function ConnectionSwitcher({ initialMode, onClose }: Props) {
         <Cmdk label="Open connection" loop>
           <Cmdk.Input
             autoFocus
-            placeholder="Open a connection…"
+            placeholder={windowFirst ? "Open a connection in a new window…" : "Open a connection…"}
             onKeyDown={(e) => {
               newWindow.current = e.ctrlKey;
               if (e.key === "Escape") {
@@ -141,9 +145,9 @@ export function ConnectionSwitcher({ initialMode, onClose }: Props) {
                       key={c.id}
                       value={`${displayName(c)} ${describeTarget(c)} ${c.tag ?? ""} ${c.id}`}
                       onSelect={() => {
-                        const inNew = newWindow.current;
+                        const ctrl = newWindow.current;
                         newWindow.current = false;
-                        void open(c, inNew);
+                        void open(c, windowFirst ? !ctrl : ctrl);
                       }}
                     >
                       <span className="conn-badge small" style={{ background: c.color }}>
@@ -158,6 +162,20 @@ export function ConnectionSwitcher({ initialMode, onClose }: Props) {
                         <span className="tag-chip" style={{ ["--tag" as string]: tag.color }}>
                           {tag.short}
                         </span>
+                      )}
+                      {!windowFirst && (
+                        <button
+                          className="icon-btn small palette-newwin"
+                          title="Open in a new window (Ctrl+Enter)"
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void open(c, true);
+                          }}
+                        >
+                          <NewWindowIcon size={14} />
+                        </button>
                       )}
                     </Cmdk.Item>
                   );
@@ -177,11 +195,11 @@ export function ConnectionSwitcher({ initialMode, onClose }: Props) {
           </Cmdk.List>
           <div className="palette-footer">
             <span>
-              <kbd>↵</kbd> Open here
+              <kbd>↵</kbd> {windowFirst ? "New window" : "Open here"}
             </span>
             <span>
               <kbd>Ctrl</kbd>
-              <kbd>↵</kbd> New window
+              <kbd>↵</kbd> {windowFirst ? "Open here" : "New window"}
             </span>
             <span>
               <kbd>Esc</kbd> Close

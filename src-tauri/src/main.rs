@@ -11,6 +11,23 @@ mod state;
 
 use tauri::{Manager, WindowEvent};
 
+/// Reopen the extra windows that were open when Tableboat last closed, each with its
+/// connection (when "reconnect at start-up" is on). Like the main window, connections that ask
+/// for their password every time are skipped, so there is no surprise prompt.
+fn reopen_windows(app: &tauri::AppHandle) {
+    if !app.state::<settings::SettingsStore>().current().reopen_last_connection {
+        return;
+    }
+    let store = app.state::<conn::store::ConnectionStore>();
+    for id in state::saved_windows(app) {
+        let Some(c) = store.get(&id) else { continue };
+        if !c.save_password && c.engine != conn::model::Engine::Sqlite {
+            continue;
+        }
+        let _ = commands::open_window(app, Some(id));
+    }
+}
+
 fn main() {
     tauri::Builder::default()
         // One process for every window: a second launch focuses the running app instead
@@ -36,6 +53,8 @@ fn main() {
             app.manage(db::query::Runs::default());
             app.manage(db::results::ResultStore::default());
             app.manage(ai::ClaudeHub::default());
+            app.manage(state::WindowList::default());
+            reopen_windows(app.handle());
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -47,6 +66,12 @@ fn main() {
                 tauri::async_runtime::spawn(async move {
                     ai::stop_window(&app.state::<ai::ClaudeHub>(), &label).await;
                     app.state::<db::Sessions>().close_window(&label).await;
+                    // Forget a window closed on its own; when the whole app is closing (all
+                    // windows within a moment), the process ends first and the list is kept.
+                    tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
+                    if !app.webview_windows().is_empty() {
+                        app.state::<state::WindowList>().set(&app, &label, None);
+                    }
                 });
             }
         })

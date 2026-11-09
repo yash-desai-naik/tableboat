@@ -216,12 +216,20 @@ pub async fn session_open(
     let session_id = sessions
         .insert(window.label().to_string(), conn.clone(), info.clone(), backend, tunnel)
         .await;
+    // Extra windows are reopened with this connection at the next start.
+    app.state::<crate::state::WindowList>().set(&app, window.label(), Some(&conn.id));
     Ok(SessionInfo { session_id, connection: conn, server: info })
 }
 
 #[tauri::command]
-pub async fn session_close(sessions: State<'_, Sessions>, session_id: String) -> Result<(), String> {
+pub async fn session_close(
+    app: AppHandle,
+    window: Window,
+    sessions: State<'_, Sessions>,
+    session_id: String,
+) -> Result<(), String> {
     sessions.close(&session_id).await;
+    app.state::<crate::state::WindowList>().set(&app, window.label(), None);
     Ok(())
 }
 
@@ -229,8 +237,16 @@ static WINDOW_COUNTER: AtomicU32 = AtomicU32::new(1);
 
 /// Open another Tableboat window in the same process (sharing one WebView2 browser).
 /// With `connect`, the new window connects to that saved connection as it opens.
+///
+/// Async on purpose: a synchronous command runs on the main thread, and building a WebView2
+/// window there deadlocks on Windows (the app froze on "New Window").
 #[tauri::command]
-pub fn window_new(app: AppHandle, connect: Option<String>) -> Result<(), String> {
+pub async fn window_new(app: AppHandle, connect: Option<String>) -> Result<(), String> {
+    open_window(&app, connect)
+}
+
+/// Build a new window (from an async command, or during setup).
+pub fn open_window(app: &AppHandle, connect: Option<String>) -> Result<(), String> {
     let n = WINDOW_COUNTER.fetch_add(1, Ordering::Relaxed);
     let label = format!("window-{n}");
     let page = match connect {
@@ -238,7 +254,7 @@ pub fn window_new(app: AppHandle, connect: Option<String>) -> Result<(), String>
         Some(id) if uuid::Uuid::parse_str(&id).is_ok() => format!("index.html?connect={id}"),
         _ => "index.html".to_string(),
     };
-    let window = WebviewWindowBuilder::new(&app, &label, WebviewUrl::App(page.into()))
+    let window = WebviewWindowBuilder::new(app, &label, WebviewUrl::App(page.into()))
         .title("Tableboat")
         .inner_size(1200.0, 780.0)
         .min_inner_size(720.0, 480.0)

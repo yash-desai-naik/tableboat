@@ -58,6 +58,16 @@ export function PlugIcon(p: IconProps) {
   );
 }
 
+/** A window with a "+": open something in a new window. */
+export function NewWindowIcon(p: IconProps) {
+  return (
+    <Svg {...p}>
+      <rect x="1.5" y="3" width="10" height="9.5" rx="1.5" />
+      <path d="M1.5 5.5h10M13.5 1.5v4M11.5 3.5h4" />
+    </Svg>
+  );
+}
+
 export function DatabaseIcon(p: IconProps) {
   return (
     <Svg {...p}>

@@ -502,6 +502,20 @@ kbd {
 [cmdk-item][data-selected="true"] {
   background: var(--bg-active);
 }
+/* "Open in a new window" on a connection row: shown on the highlighted or hovered row. */
+.palette-newwin {
+  flex: none;
+  margin-left: auto;
+  visibility: hidden;
+}
+[cmdk-item][data-selected="true"] .palette-newwin,
+[cmdk-item]:hover .palette-newwin {
+  visibility: visible;
+}
+.palette-newwin:hover {
+  background: var(--control-fill-hover);
+  color: var(--accent);
+}
 
 .palette-check {
   width: 12px;
