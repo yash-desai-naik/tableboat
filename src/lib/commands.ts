@@ -169,6 +169,7 @@ export function buildCommands(ctx: CommandContext): Command[] {
       run: ctx.openPalette,
     },
     { id: "settings.open", category: "Preferences", title: "Open Settings", keys: ["Ctrl+,"], run: () => uiActions.openSettings() },
+    { id: "help.about", category: "Help", title: "About Tableboat (version)", run: () => uiActions.openAbout() },
     {
       id: "settings.restoreTabs",
       category: "Preferences",

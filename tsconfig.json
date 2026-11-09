@@ -14,5 +14,7 @@
     "noEmit": true,
     "types": ["vite/client"]
   },
-  "include": ["src", "vite.config.ts"]
+  // The app's code only. vite.config.ts is build tooling run by Node (it reads git for the
+  // About box) and is checked by Vite itself.
+  "include": ["src"]
 }

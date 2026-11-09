@@ -68,6 +68,40 @@ pub fn saved_windows(app: &AppHandle) -> Vec<String> {
     ids
 }
 
+/// Where Tableboat keeps things, for the About box.
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AppPaths {
+    /// Settings, saved connections (no passwords), tab state.
+    data_dir: String,
+    /// Claude Code projects, one folder per connection.
+    sessions_dir: String,
+    /// The running program.
+    exe: String,
+}
+
+#[tauri::command]
+pub fn app_paths(app: AppHandle) -> Result<AppPaths, String> {
+    Ok(AppPaths {
+        data_dir: data_dir(&app)?.display().to_string(),
+        sessions_dir: crate::ai::sessions_base().display().to_string(),
+        exe: std::env::current_exe().map(|p| p.display().to_string()).unwrap_or_default(),
+    })
+}
+
+/// Open one of Tableboat's folders in File Explorer ("data" or "sessions"); created if missing.
+#[tauri::command]
+pub fn open_app_folder(app: AppHandle, which: String) -> Result<(), String> {
+    let dir = match which.as_str() {
+        "data" => data_dir(&app)?,
+        "sessions" => crate::ai::sessions_base(),
+        _ => return Err("Unknown folder.".into()),
+    };
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    std::process::Command::new("explorer.exe").arg(&dir).spawn().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 /// Open settings.json in the user's default editor for .json files (Notepad if none).
 #[tauri::command]
 pub fn open_settings_file(app: AppHandle) -> Result<String, String> {

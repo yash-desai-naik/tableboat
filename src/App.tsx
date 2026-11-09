@@ -13,6 +13,7 @@ import { resetWorkspace, useWorkspace } from "./lib/workspace";
 import { flushWorkspace, rememberLastConnection, restoreFor, trackWorkspace } from "./lib/persist";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { SettingsPage } from "./settings/SettingsPage";
+import { AboutDialog } from "./shell/AboutDialog";
 import { CommandPalette } from "./palette/CommandPalette";
 import { DatabasePicker } from "./palette/DatabasePicker";
 import { QuickOpen } from "./palette/QuickOpen";
@@ -75,6 +76,8 @@ export function App() {
   uiActions.openConnections = (mode = "list") => setSwitcher(mode);
   const [settingsOpen, setSettingsOpen] = useState(false);
   uiActions.openSettings = () => setSettingsOpen(true);
+  const [aboutOpen, setAboutOpen] = useState(false);
+  uiActions.openAbout = () => setAboutOpen(true);
 
   // Save open tabs before the window closes.
   useEffect(() => {
@@ -215,6 +218,7 @@ export function App() {
       {paletteOpen && <CommandPalette commands={commands} onClose={() => setPaletteOpen(false)} />}
       {overlay === "quickOpen" && sessionId && <QuickOpen sessionId={sessionId} onClose={() => setOverlay(null)} />}
       {settingsOpen && <SettingsPage onClose={() => setSettingsOpen(false)} />}
+      {aboutOpen && <AboutDialog onClose={() => setAboutOpen(false)} />}
       {switcher && <ConnectionSwitcher initialMode={switcher} onClose={() => setSwitcher(null)} />}
       {overlay === "databases" && sessionId && (
         <DatabasePicker sessionId={sessionId} onClose={() => setOverlay(null)} />

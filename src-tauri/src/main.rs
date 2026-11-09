@@ -122,6 +122,8 @@ fn main() {
             state::state_read,
             state::state_write,
             state::open_settings_file,
+            state::app_paths,
+            state::open_app_folder,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Tableboat");

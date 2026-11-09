@@ -618,3 +618,32 @@ table.kv td {
   justify-content: flex-end;
   gap: 4px 12px;
 }
+
+/* ---------- About ---------- */
+
+.about-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+.about-name {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+}
+.about-table th {
+  width: 90px;
+  vertical-align: top;
+  color: var(--text-3);
+}
+.about-path {
+  word-break: break-all;
+}
+.settings-version {
+  margin-right: 10px;
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+}
+.settings-version:hover {
+  color: var(--accent);
+}

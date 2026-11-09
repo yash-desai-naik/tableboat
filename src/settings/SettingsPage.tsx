@@ -3,6 +3,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { OBJECT_KINDS } from "../lib/meta";
 import { updateSettings, useSettings, type Settings } from "../lib/settings";
 import { Dialog } from "../shell/Dialog";
+import { useAppVersion, versionLine } from "../shell/AboutDialog";
+import { uiActions } from "../lib/ui";
 
 type Def =
   | { key: keyof Settings; type: "select"; options: [string | number, string][] }
@@ -114,6 +116,7 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
   const settings = useSettings();
   const [query, setQuery] = useState("");
   const [fileNote, setFileNote] = useState<string | null>(null);
+  const version = useAppVersion();
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -141,6 +144,16 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
           </button>
           {fileNote && <span className="muted small">{fileNote}</span>}
           <span className="spacer" />
+          <button
+            className="link-btn settings-version"
+            title="About Tableboat: version, build, folders"
+            onClick={() => {
+              onClose();
+              uiActions.openAbout();
+            }}
+          >
+            {version ? versionLine(version) : "Tableboat"}
+          </button>
           <button className="btn primary" onClick={onClose}>
             Done
           </button>

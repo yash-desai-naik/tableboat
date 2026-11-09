@@ -13,4 +13,5 @@ export const uiActions = {
    */
   openConnections: (_mode: "list" | "window" | "new" | "url" | "edit" = "list") => {},
   openSettings: () => {},
+  openAbout: () => {},
 };
