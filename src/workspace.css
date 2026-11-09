@@ -10,7 +10,7 @@
 }
 
 .sidebar-head {
-  height: var(--tabs-h);
+  height: var(--panehead-h);
   flex: none;
   display: flex;
   align-items: center;
@@ -185,19 +185,78 @@ mark {
 
 /* ---------- tabs ---------- */
 
+/* Tab bar: compact pill tabs on the chrome, no dividers, no scrollbar. The active tab is the
+   same raised chip as a segmented control's selection; the rest are quiet. */
+.tabbar {
+  height: var(--panehead-h);
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-chrome);
+}
 .tabs {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 2px;
   overflow-x: auto;
   overflow-y: hidden;
-  scrollbar-width: thin;
+  scrollbar-width: none;
 }
 .tabs::-webkit-scrollbar {
-  height: 3px;
+  display: none;
+}
+/* Fade the edge where more tabs are hidden. */
+.tabs.fade-right {
+  mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent);
+}
+.tabs.fade-left {
+  mask-image: linear-gradient(to left, #000 calc(100% - 40px), transparent);
+}
+.tabs.fade-left.fade-right {
+  mask-image: linear-gradient(to right, transparent, #000 40px, #000 calc(100% - 40px), transparent);
+}
+.tabs-all {
+  flex: none;
 }
 
 .tab {
   flex: none;
-  max-width: 240px;
-  padding: 0 6px 0 12px;
+  max-width: 220px;
+  height: calc(var(--panehead-h) - 12px);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 4px 0 10px;
+  border-radius: var(--radius-control);
+  color: var(--text-3);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 0.12s ease,
+    color 0.12s ease;
+}
+.tab:hover {
+  background: var(--control-fill);
+  color: var(--text-2);
+}
+.tab.active {
+  background: var(--surface-raised);
+  color: var(--text);
+  box-shadow: var(--shadow-raised);
+}
+/* Inactive tabs show their kind icon faded; the active one in full colour. */
+.tab .kind-icon {
+  opacity: 0.55;
+}
+.tab.active .kind-icon,
+.tab:hover .kind-icon {
+  opacity: 1;
 }
 .tab-title {
   overflow: hidden;
@@ -205,6 +264,10 @@ mark {
   text-overflow: ellipsis;
   font-family: var(--font-mono);
   font-size: var(--fs-md);
+}
+/* Single fixed tabs ("Overview", "Connections") have no close button. */
+.tab:not(:has(.tab-close)) {
+  padding-right: 12px;
 }
 /* Preview tabs are italic, as in VS Code and TablePlus. */
 .tab.preview .tab-title {
@@ -227,12 +290,8 @@ mark {
   visibility: visible;
 }
 .tab-close:hover {
-  background: var(--bg-hover);
+  background: var(--control-fill-hover);
   color: var(--text);
-}
-/* Active tab: a 2 px accent line on top, joined to the content below. */
-.tab.active {
-  box-shadow: inset 0 2px 0 var(--accent);
 }
 
 /* ---------- palette extras ---------- */

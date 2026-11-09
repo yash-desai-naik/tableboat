@@ -22,6 +22,8 @@
   --radius-popup: 12px;
   --titlebar-h: 40px;
   --tabs-h: 30px;
+  /* One height for the sidebar header, the tab bar and the Claude pane header, so they line up. */
+  --panehead-h: 40px;
   --row-h: 24px;
   --editor-font-size: 13px;
   --grid-font-size: 12.5px;
@@ -30,6 +32,7 @@
 :root[data-density="compact"] {
   --row-h: 22px;
   --tabs-h: 28px;
+  --panehead-h: 36px;
 }
 
 :root[data-density="comfortable"] {
@@ -56,6 +59,11 @@
   --accent-soft: rgba(217, 119, 87, 0.22);
   --selection: #523a2f;
   --zebra: #2a2a27;
+  /* Soft controls: filled chips, and the raised "selected" chip of a segmented control. */
+  --control-fill: #33322f;
+  --control-fill-hover: #3d3c38;
+  --surface-raised: #45443f;
+  --shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.35);
   --danger: #e0614f;
   --scrim: rgba(0, 0, 0, 0.45);
   --shadow-popup: 0 12px 32px rgba(0, 0, 0, 0.5);
@@ -81,6 +89,10 @@
   --accent-soft: rgba(201, 100, 66, 0.14);
   --selection: #f0d6c9;
   --zebra: #f4f2eb;
+  --control-fill: #ece9e0;
+  --control-fill-hover: #e3dfd3;
+  --surface-raised: #ffffff;
+  --shadow-raised: 0 1px 2px rgba(40, 30, 20, 0.14), 0 0 0 1px rgba(40, 30, 20, 0.05);
   --danger: #b5352a;
   --scrim: rgba(20, 20, 19, 0.22);
   --shadow-popup: 0 12px 32px rgba(40, 30, 20, 0.16);
@@ -378,32 +390,6 @@ body.resizing * {
 
 /* ---------- tabs ---------- */
 
-.tabs {
-  height: var(--tabs-h);
-  flex: none;
-  display: flex;
-  background: var(--bg-chrome);
-  border-bottom: 1px solid var(--border);
-}
-
-.tab {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0 14px;
-  color: var(--text-2);
-  border-right: 1px solid var(--border);
-  white-space: nowrap;
-}
-.tab:hover {
-  color: var(--text);
-}
-/* The active tab joins the content below it. */
-.tab.active {
-  background: var(--bg);
-  color: var(--text);
-  margin-bottom: -1px;
-}
 
 /* ---------- welcome ---------- */
 

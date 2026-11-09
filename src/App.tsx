@@ -175,9 +175,11 @@ export function App() {
             </>
           ) : (
             <>
-              <div className="tabs" role="tablist">
-                <div className="tab active" role="tab" aria-selected="true">
-                  Connections
+              <div className="tabbar">
+                <div className="tabs" role="tablist">
+                  <div className="tab active" role="tab" aria-selected="true">
+                    <span className="tab-title">Connections</span>
+                  </div>
                 </div>
               </div>
               {/* The list stays mounted while connecting, so a connection error can be shown on it. */}

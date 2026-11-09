@@ -113,6 +113,9 @@ body.resizing-v * {
   flex: none;
   max-width: 50%;
   overflow-x: auto;
+  padding: 2px;
+  border-radius: var(--radius-pill);
+  background: var(--control-fill);
 }
 .rtab {
   height: 24px;
@@ -124,13 +127,19 @@ body.resizing-v * {
   font-size: var(--fs-md);
   white-space: nowrap;
 }
+.rtab {
+  color: var(--text-3);
+  cursor: pointer;
+}
 .rtab:hover {
-  background: var(--bg-hover);
+  background: var(--control-fill);
   color: var(--text);
 }
+/* Same raised chip as the segmented control. */
 .rtab.active {
-  background: var(--bg-active);
+  background: var(--surface-raised);
   color: var(--text);
+  box-shadow: var(--shadow-raised);
 }
 .rtab-badge {
   margin-left: 6px;
@@ -171,8 +180,13 @@ body.resizing-v * {
   flex: 0 1 180px;
   width: 180px;
   min-width: 70px;
-  height: 24px;
+  height: 26px;
+  border-color: transparent;
+  background: var(--control-fill);
   font-size: var(--fs-md);
+}
+.results-search:focus {
+  background: var(--bg);
 }
 
 .results-body {

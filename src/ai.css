@@ -11,7 +11,7 @@
 /* ---------- header ---------- */
 
 .ai-head {
-  height: 40px;
+  height: var(--panehead-h);
   flex: none;
   display: flex;
   align-items: center;
