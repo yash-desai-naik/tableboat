@@ -1,0 +1,252 @@
+/* Claude pane */
+
+.ai {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ai-head-actions {
+  display: flex;
+  gap: 2px;
+}
+
+.ai-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  user-select: text;
+}
+
+.ai-empty {
+  padding: 12px 4px;
+  color: var(--text-2);
+}
+.ai-empty p {
+  margin: 0 0 8px;
+}
+.ai-suggestions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 10px;
+}
+.ai-suggestions .btn {
+  height: auto;
+  min-height: 26px;
+  padding: 3px 10px;
+  text-align: left;
+  white-space: normal;
+}
+
+.ai-msg {
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.ai-msg.user {
+  align-self: flex-end;
+  max-width: 90%;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--accent-tint);
+  white-space: pre-wrap;
+}
+.ai-msg.assistant code {
+  padding: 0 4px;
+  border-radius: 3px;
+  background: var(--bg-active);
+}
+.ai-prose {
+  margin: 2px 0;
+}
+.ai-caret {
+  display: inline-block;
+  width: 7px;
+  height: 14px;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+  background: var(--text-3);
+}
+
+.ai-code {
+  margin: 6px 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.ai-code-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 3px 8px;
+  background: var(--bg-chrome);
+  color: var(--text-3);
+  font-size: 11.5px;
+}
+.ai-code pre {
+  margin: 0;
+  padding: 8px 10px;
+  overflow-x: auto;
+  background: var(--bg);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.ai-tool {
+  border-left: 2px solid var(--border-strong);
+  padding-left: 8px;
+}
+.ai-tool.error {
+  border-left-color: var(--danger);
+}
+.ai-tool-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: var(--text-2);
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+.ai-tool-name {
+  flex: none;
+  font-weight: 600;
+}
+.ai-tool-sum {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+}
+.ai-tool-result {
+  max-height: 260px;
+  margin: 4px 0 0;
+  padding: 6px 8px;
+  overflow: auto;
+  border-radius: 4px;
+  background: var(--bg);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  white-space: pre-wrap;
+}
+
+.ai-perm {
+  padding: 8px 10px;
+  border: 1px solid #d29922;
+  border-radius: 6px;
+  background: color-mix(in srgb, #d29922 10%, var(--bg));
+}
+.ai-perm.allowed {
+  border-color: var(--border-strong);
+  background: transparent;
+}
+.ai-perm.denied {
+  border-color: var(--danger);
+  background: transparent;
+}
+.ai-perm-title {
+  font-size: 12.5px;
+}
+.ai-perm-detail {
+  max-height: 200px;
+  margin: 6px 0;
+  padding: 6px 8px;
+  overflow: auto;
+  border-radius: 4px;
+  background: var(--bg);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  white-space: pre-wrap;
+}
+.ai-perm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.ai-done {
+  align-self: center;
+  color: var(--text-3);
+  font-size: 11px;
+}
+.ai-working {
+  color: var(--text-3);
+  font-size: 12px;
+}
+.ai-note {
+  padding: 8px 10px;
+  border-radius: 6px;
+  white-space: pre-wrap;
+}
+.ai-note.error {
+  border: 1px solid var(--danger);
+  background: color-mix(in srgb, var(--danger) 10%, var(--bg));
+}
+
+.ai-compose {
+  flex: none;
+  padding: 8px;
+  border-top: 1px solid var(--border);
+}
+.ai-input {
+  height: auto;
+  min-height: 60px;
+  max-height: 200px;
+  resize: vertical;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.ai-compose-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  min-width: 0;
+}
+.ai-compose-bar .muted {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.ai-h {
+  margin: 6px 0 2px;
+  font-weight: 600;
+}
+.ai-li {
+  padding-left: 12px;
+}
+.ai-gap {
+  height: 6px;
+}
+.ai-table {
+  margin: 6px 0;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.ai-table th,
+.ai-table td {
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+.ai-table th {
+  background: var(--bg-chrome);
+  font-weight: 600;
+}
