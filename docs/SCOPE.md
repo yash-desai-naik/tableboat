@@ -96,7 +96,7 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done and checked by you.
 - [ ] Toggle with a shortcut and from the command palette
 - [ ] Runs your installed `claude.exe` directly from Rust in streaming-JSON mode (`-p --input-format stream-json --output-format stream-json`), using your existing Claude Code login. No Node.js: the official ACP adapter is a Node program, so Tableboat speaks to Claude Code the same way the adapter does, without it
 - [ ] Permission prompts come back to Tableboat through `--permission-prompt-tool` on Tableboat's own MCP server, and are shown as Allow / Deny buttons
-- [ ] **Working directory is always `D:\tableboat\sessions`** (created if missing)
+- [ ] **Working directory is `~\.tableboat\sessions\<connection>`**: one Claude Code project per connection, created if missing (changed from the original `D:\tableboat\sessions` so the app works on any PC)
 - [ ] Chat with streaming replies, tool-call and permission prompts, and a stop button
 - [ ] Sessions listed and resumable
 - [ ] "Insert into editor" and "Run" buttons on SQL in replies
