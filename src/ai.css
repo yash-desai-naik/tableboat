@@ -410,8 +410,168 @@
 /* ---------- composer ---------- */
 
 .ai-compose {
+  position: relative;
   flex: none;
   padding: 8px 10px 10px;
+}
+
+/* "@" list: opens above the input. */
+.ai-mention-pop {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: calc(100% - 4px);
+  z-index: 20;
+  max-height: 340px;
+  overflow-y: auto;
+  padding: 4px;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-popup);
+}
+.ai-mention-group {
+  padding: 6px 8px 2px;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.ai-mention-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.ai-mention-row.active {
+  background: var(--bg-active);
+}
+.ai-mention-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  color: var(--text-3);
+}
+.ai-mention-icon.k-object,
+.ai-att.k-object .ai-att-icon {
+  color: var(--accent);
+}
+.ai-mention-icon.k-connection,
+.ai-att.k-connection .ai-att-icon {
+  color: #3fa36b;
+}
+.ai-mention-label {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.ai-mention-detail {
+  flex: none;
+  margin-left: auto;
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+}
+.ai-mention-hint {
+  padding: 6px 8px 2px;
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+
+/* Attached context: chips above the text. */
+.ai-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 8px 10px 0;
+}
+.ai-att {
+  max-width: 100%;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 4px 0 7px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--control-fill);
+  font-size: var(--fs-sm);
+}
+.ai-att-icon {
+  display: grid;
+  color: var(--text-3);
+}
+.ai-att-label {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.ai-att-remove {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--text-3);
+  line-height: 1;
+  cursor: pointer;
+}
+.ai-att-remove:hover {
+  background: var(--control-fill-hover);
+  color: var(--text);
+}
+.ai-bar-btn {
+  flex: none;
+  color: var(--text-3);
+}
+.ai-bar-btn:hover:not(:disabled) {
+  color: var(--text);
+}
+.ai-compose-note {
+  padding: 2px 12px 4px;
+  color: var(--danger);
+  font-size: var(--fs-sm);
+}
+.ai-composer {
+  position: relative;
+}
+.ai-composer.dropping {
+  border-color: var(--accent);
+  border-style: dashed;
+}
+.ai-drop-hint {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg-elevated) 85%, transparent);
+  color: var(--accent);
+  font-weight: 600;
+  pointer-events: none;
+}
+
+/* Under a sent message: what came with it. */
+.ai-user-atts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+.ai-user-att {
+  padding: 0 6px;
+  border-radius: 4px;
+  background: var(--control-fill);
+  color: var(--text-2);
+  font-size: var(--fs-sm);
 }
 .ai-composer {
   display: flex;

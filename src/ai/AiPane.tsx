@@ -25,6 +25,8 @@ import { getSession, useSession } from "../lib/session";
 import { useSettings } from "../lib/settings";
 import { activeTab, getWorkspace, useWorkspace } from "../lib/workspace";
 import { CloseSmallIcon } from "../shell/Icons";
+import { Composer } from "./Composer";
+import { contextText, type Mention } from "./mentions";
 import { Menu, type MenuItem } from "../shell/Menu";
 
 /** What Claude can see through get_context, read fresh from the app's state. */
@@ -61,7 +63,6 @@ export function AiPane({ onClose }: { onClose: () => void }) {
     modelSetting.current = settings.claudeModel;
     clearModel();
   }, [settings.claudeModel]);
-  const [draft, setDraft] = useState("");
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -116,19 +117,15 @@ export function AiPane({ onClose }: { onClose: () => void }) {
     return () => window.removeEventListener("keydown", onKey, true);
   }, []);
 
-  // The input grows with its text, up to a limit.
-  useLayoutEffect(() => {
-    const el = inputRef.current;
-    if (!el) return;
-    el.style.height = "auto";
-    el.style.height = `${Math.min(el.scrollHeight, 220)}px`;
-  }, [draft]);
-
-  function submit() {
-    const text = draft.trim();
-    if (!text || chat.running) return;
-    setDraft("");
-    void send(text, currentContext());
+  /** Send with the @ context: definitions and file contents as text, images, linked connections. */
+  async function sendWithMentions(text: string, mentions: Mention[]) {
+    const context = await contextText(mentions);
+    void send(text, currentContext(), {
+      context,
+      images: mentions.flatMap((m) => (m.kind === "image" ? [{ mediaType: m.mediaType, data: m.data }] : [])),
+      connections: mentions.flatMap((m) => (m.kind === "connection" ? [m.id] : [])),
+      attachments: mentions.map((m) => (m.kind === "file" || m.kind === "image" ? m.label : `@${m.label}`)),
+    });
   }
 
   async function pastChats(x: number, y: number) {
@@ -215,24 +212,15 @@ export function AiPane({ onClose }: { onClose: () => void }) {
         {chat.running && !pending && <Working />}
       </div>
 
-      <div className="ai-compose">
-        <div className="ai-composer" onClick={() => inputRef.current?.focus()}>
-          <textarea
-            ref={inputRef}
-            className="ai-input"
-            rows={1}
-            placeholder={status?.installed === false ? "Claude Code isn't installed" : "Ctrl+Esc to focus or unfocus Claude"}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
-                e.preventDefault();
-                submit();
-              }
-            }}
-            disabled={status?.installed === false}
-          />
-          <div className="ai-composer-bar">
+      <Composer
+        inputRef={inputRef}
+        disabled={status?.installed === false}
+        placeholder={status?.installed === false ? "Claude Code isn't installed" : "Ask Claude… @ adds tables, columns, connections, files · Ctrl+Esc focus"}
+        running={chat.running}
+        onSend={(text, mentions) => void sendWithMentions(text, mentions)}
+        onStop={() => void stop()}
+        chips={
+          <>
             <span className="ai-chip" title={sees ? `Claude sees ${sees}` : "Not connected to a database"}>
               <span className={sees ? "ai-chip-dot on" : "ai-chip-dot"} />
               <span className="ai-chip-text">{sees ?? "Not connected"}</span>
@@ -250,33 +238,9 @@ export function AiPane({ onClose }: { onClose: () => void }) {
               <ShieldIcon />
               <span className="ai-mode-text">Asks before writes</span>
             </span>
-            {chat.running ? (
-              <button
-                className="ai-send stop"
-                title="Stop (Esc)"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  void stop();
-                }}
-              >
-                <StopIcon />
-              </button>
-            ) : (
-              <button
-                className="ai-send"
-                title="Send (Enter)"
-                disabled={!draft.trim()}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  submit();
-                }}
-              >
-                <ArrowUpIcon />
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
+          </>
+        }
+      />
       {menu && <Menu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
     </div>
   );
@@ -338,7 +302,18 @@ function Item({ item }: { item: ChatItem }) {
               {new Date(item.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
             </div>
           )}
-          <div className="ai-user">{item.text}</div>
+          <div className="ai-user">
+            {item.text}
+            {item.attachments && (
+              <div className="ai-user-atts">
+                {item.attachments.map((a, i) => (
+                  <span key={i} className="ai-user-att">
+                    {a}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       );
     case "assistant":
@@ -468,17 +443,6 @@ const ShieldIcon = () => (
     <path d="M8 1.8 2.8 3.8v4c0 3.2 2.2 5.4 5.2 6.4 3-1 5.2-3.2 5.2-6.4v-4Z" />
   </svg>
 );
-const ArrowUpIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
-    <path d="M7 11.5V2.8M3 6.6 7 2.6l4 4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-);
-const StopIcon = () => (
-  <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
-    <rect x="1" y="1" width="8" height="8" rx="1.5" fill="currentColor" />
-  </svg>
-);
-
 /** A tool's input for the IN box: SQL or a command as is, anything else as JSON. */
 function toolInput(input: unknown): string {
   if (!input || typeof input !== "object") return String(input ?? "");

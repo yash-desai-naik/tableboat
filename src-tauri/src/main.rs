@@ -117,6 +117,8 @@ fn main() {
             ai::claude_sessions,
             ai::claude_session_messages,
             ai::claude_set_context,
+            ai::read_attachment,
+            ai::voice_typing,
             state::state_read,
             state::state_write,
             state::open_settings_file,

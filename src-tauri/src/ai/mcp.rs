@@ -5,6 +5,8 @@
 //!   get_context     – connection, database, open table, SQL in the editor
 //!   get_schema      – tables and columns (or one table in detail)
 //!   run_read_query  – read-only, enforced by the database (READ ONLY transaction / query_only)
+//!   (both take `connection` to read another saved connection the user @-mentioned in the chat;
+//!   Tableboat opens a session to it on first use and closes it with the chat or the window)
 //!   execute_sql     – anything else; never pre-allowed, so the user always approves it
 //!   approve         – Claude Code's permission prompt, answered in the pane (Allow / Deny)
 
@@ -133,17 +135,20 @@ fn tool_list() -> Value {
         },
         {
             "name": "get_schema",
-            "description": "Tables and their columns in a database (default: the current one). With `table`, that table's columns, keys and CREATE statement.",
+            "description": "Tables and their columns in a database (default: the current one). With `table`, that table's columns, keys and CREATE statement. With `connection`, read another connection the user added to this chat (see get_context).",
             "inputSchema": { "type": "object", "properties": {
+                "connection": { "type": "string", "description": "Name or id of a connection the user added to the chat; default: the window's own connection" },
                 "database": { "type": "string" },
                 "table": { "type": "string" }
             } }
         },
         {
             "name": "run_read_query",
-            "description": "Run ONE read-only statement in the current database and get the rows as a Markdown table. SQL databases: SELECT, WITH, SHOW, DESCRIBE, EXPLAIN (writes are rejected by the database). MongoDB: mongosh syntax such as db.users.find({ age: { $gt: 30 } }).limit(10) or db.orders.aggregate([...]).",
+            "description": "Run ONE read-only statement and get the rows as a Markdown table (default: the window's connection and current database). SQL databases: SELECT, WITH, SHOW, DESCRIBE, EXPLAIN (writes are rejected by the database). MongoDB: mongosh syntax such as db.users.find({ age: { $gt: 30 } }).limit(10) or db.orders.aggregate([...]). With `connection`, run it on another connection the user added to this chat.",
             "inputSchema": { "type": "object", "properties": {
                 "sql": { "type": "string" },
+                "connection": { "type": "string", "description": "Name or id of a connection the user added to the chat; default: the window's own connection" },
+                "database": { "type": "string", "description": "Database to run in; default: the current one (or the connection's default)" },
                 "max_rows": { "type": "integer", "minimum": 1, "maximum": 1000, "default": 100 }
             }, "required": ["sql"] }
         },
@@ -172,13 +177,88 @@ fn session_for(app: &AppHandle, window: &str) -> Result<(SessionHandle, super::A
     Ok((session, ctx))
 }
 
+fn display_name(c: &crate::conn::model::Connection) -> String {
+    if !c.name.trim().is_empty() {
+        c.name.trim().to_string()
+    } else if let Some(file) = c.file.as_deref().filter(|f| !f.is_empty()) {
+        file.rsplit(['\\', '/']).next().unwrap_or(file).to_string()
+    } else {
+        format!("{}@{}", c.user, c.host)
+    }
+}
+
+/// The session a read tool should use, and the database to default to: the window's own, or,
+/// with `connection`, another saved connection the user @-mentioned in this chat (opened on
+/// first use, read-only by the tools that use it).
+fn target_session(app: &AppHandle, window: &str, args: &Value) -> Result<(SessionHandle, Option<String>), String> {
+    let wanted = args.get("connection").and_then(Value::as_str).map(str::trim).filter(|s| !s.is_empty());
+    let hub = app.state::<ClaudeHub>();
+    let ctx = hub.context(window);
+    let Some(wanted) = wanted else {
+        let (session, ctx) = session_for(app, window)?;
+        return Ok((session, ctx.database));
+    };
+    let store = app.state::<crate::conn::store::ConnectionStore>();
+    let linked: Vec<_> = hub.linked(window).iter().filter_map(|id| store.get(id)).collect();
+    let matches = |c: &crate::conn::model::Connection| c.id == wanted || display_name(c).eq_ignore_ascii_case(wanted);
+    // The window's own connection, asked for by name.
+    if let Some(own) = ctx.connection_id.as_deref().and_then(|id| store.get(id)).filter(|c| matches(c)) {
+        let _ = own;
+        let (session, ctx) = session_for(app, window)?;
+        return Ok((session, ctx.database));
+    }
+    let Some(conn) = linked.iter().find(|c| matches(c)).cloned() else {
+        let names: Vec<String> = linked.iter().map(|c| format!("\"{}\"", display_name(c))).collect();
+        return Err(format!(
+            "The user hasn't added a connection named \"{wanted}\" to this chat{}. They can add one by typing @ in the chat input.",
+            if names.is_empty() { String::new() } else { format!(" (added: {})", names.join(", ")) }
+        ));
+    };
+    let default_db = Some(conn.database.clone())
+        .filter(|d| !d.is_empty())
+        .or_else(|| (conn.engine == crate::conn::model::Engine::Sqlite).then(|| "main".to_string()));
+    let sessions = app.state::<Sessions>();
+    if let Some(sid) = hub.linked_session(window, &conn.id) {
+        if let Ok(session) = tauri::async_runtime::block_on(sessions.get(&sid)) {
+            return Ok((session, default_db));
+        }
+    }
+    let secrets = crate::conn::secrets::load(&conn.id)?;
+    if !conn.save_password && conn.engine != crate::conn::model::Engine::Sqlite && secrets.password.is_none() {
+        return Err(format!(
+            "\"{}\" asks for its password every time, so Tableboat can't open it for you. The user can connect to it in a Tableboat window instead.",
+            display_name(&conn)
+        ));
+    }
+    let known_hosts = crate::paths::data_dir(app)?.join("known_hosts");
+    let (backend, info, tunnel) = tauri::async_runtime::block_on(db::open(&conn, &secrets, known_hosts))
+        .map_err(|e| format!("Could not connect to \"{}\": {e}", display_name(&conn)))?;
+    let sid = tauri::async_runtime::block_on(sessions.insert(window.to_string(), conn.clone(), info, backend, tunnel));
+    hub.set_linked_session(window, &conn.id, &sid);
+    Ok((tauri::async_runtime::block_on(sessions.get(&sid))?, default_db))
+}
+
 fn call_tool(app: &AppHandle, window: &str, name: &str, args: &Value) -> Result<String, String> {
     match name {
         "approve" => approve(app, window, args),
         "get_context" => {
-            let ctx = app.state::<ClaudeHub>().context(window);
+            let hub = app.state::<ClaudeHub>();
+            let ctx = hub.context(window);
+            let store = app.state::<crate::conn::store::ConnectionStore>();
+            let linked: Vec<String> = hub
+                .linked(window)
+                .iter()
+                .filter_map(|id| store.get(id))
+                .filter(|c| Some(&c.id) != ctx.connection_id.as_ref())
+                .map(|c| {
+                    let db = if c.database.is_empty() { String::new() } else { format!(", database {}", c.database) };
+                    format!("- \"{}\" ({:?}{db}): pass connection: \"{}\" to get_schema / run_read_query\n", display_name(&c), c.engine, display_name(&c))
+                })
+                .collect();
+            let linked_text =
+                if linked.is_empty() { String::new() } else { format!("Other connections the user added to this chat (read-only):\n{}", linked.concat()) };
             if ctx.session_id.is_none() {
-                return Ok("Not connected to any database in this Tableboat window.".into());
+                return Ok(format!("Not connected to any database in this Tableboat window.\n{linked_text}"));
             }
             let mut out = format!(
                 "Connection: {}\nEngine: {}\nDatabase: {}\n",
@@ -193,16 +273,18 @@ fn call_tool(app: &AppHandle, window: &str, name: &str, args: &Value) -> Result<
                 Some(sql) => out.push_str(&format!("SQL in the active editor tab:\n```sql\n{}\n```\n", clip(sql, 20_000))),
                 None => out.push_str("No SQL editor tab is active.\n"),
             }
+            out.push_str(&linked_text);
             Ok(out)
         }
         "get_schema" => {
-            let (session, ctx) = session_for(app, window)?;
-            let database = args
-                .get("database")
-                .and_then(Value::as_str)
-                .map(str::to_string)
-                .or(ctx.database.clone())
-                .ok_or("No database selected; pass `database`.")?;
+            let (session, default_db) = target_session(app, window, args)?;
+            let database = match args.get("database").and_then(Value::as_str).map(str::to_string).or(default_db) {
+                Some(d) => d,
+                None => {
+                    let list = tauri::async_runtime::block_on(db::meta::databases(&session, false)).unwrap_or_default();
+                    return Err(format!("No database selected; pass `database`. Databases: {}", list.join(", ")));
+                }
+            };
             match args.get("table").and_then(Value::as_str) {
                 Some(table) => tauri::async_runtime::block_on(async {
                     let cols = db::meta::table_columns(&session, &database, table).await?;
@@ -261,10 +343,11 @@ fn call_tool(app: &AppHandle, window: &str, name: &str, args: &Value) -> Result<
             }
         }
         "run_read_query" => {
-            let (session, ctx) = session_for(app, window)?;
+            let (session, default_db) = target_session(app, window, args)?;
             let sql = args.get("sql").and_then(Value::as_str).ok_or("`sql` is required.")?;
             let max_rows = args.get("max_rows").and_then(Value::as_u64).unwrap_or(100).clamp(1, 1000) as usize;
-            run_read(app, &session, ctx.database.as_deref(), sql, max_rows)
+            let database = args.get("database").and_then(Value::as_str).map(str::to_string).or(default_db);
+            run_read(app, &session, database.as_deref(), sql, max_rows)
         }
         "execute_sql" => {
             let (session, ctx) = session_for(app, window)?;

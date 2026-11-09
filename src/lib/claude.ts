@@ -1,9 +1,17 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useSyncExternalStore } from "react";
 import { refreshAll } from "./refresh";
+import { stripContext } from "../ai/mentions";
 
 export type ChatItem =
-  | { kind: "user"; text: string; /** When it was sent (ms since 1970), if known. */ at?: number }
+  | {
+      kind: "user";
+      text: string;
+      /** When it was sent (ms since 1970), if known. */
+      at?: number;
+      /** What came with it: @ mentions, files, images (labels only). */
+      attachments?: string[];
+    }
   | { kind: "assistant"; text: string; streaming?: boolean }
   | { kind: "tool"; id: string; name: string; input: unknown; result?: string; isError?: boolean }
   | { kind: "permission"; id: string; toolName: string; input: Record<string, unknown>; state: "pending" | "allowed" | "denied" }
@@ -138,7 +146,14 @@ export function applyEvent(ev: Record<string, unknown>, live: boolean) {
     // Saved chats carry an ISO timestamp per message.
     const parsed = typeof ev.timestamp === "string" ? Date.parse(ev.timestamp) : NaN;
     const at = Number.isNaN(parsed) ? undefined : parsed;
+    // A saved message: show what the user typed; the attached @ context is summarised.
+    const userItem = (raw: string, images: number): ChatItem => {
+      const { text, hadContext } = stripContext(raw);
+      const attachments = [...(hadContext ? ["@ context"] : []), ...(images ? [`${images} image${images > 1 ? "s" : ""}`] : [])];
+      return { kind: "user", text, at, attachments: attachments.length ? attachments : undefined };
+    };
     if (Array.isArray(content)) {
+      const images = content.filter((c) => (c as { type?: string })?.type === "image").length;
       for (const block of content) {
         const b = block as { type: string; tool_use_id?: string; content?: unknown; is_error?: boolean; text?: string };
         if (b.type === "tool_result") {
@@ -149,11 +164,11 @@ export function applyEvent(ev: Record<string, unknown>, live: boolean) {
             if (live && !b.is_error && tool.name.endsWith("execute_sql")) state.wroteData = true;
           }
         } else if (b.type === "text" && !live && b.text?.trim()) {
-          items.push({ kind: "user", text: b.text, at });
+          items.push(userItem(b.text, images));
         }
       }
     } else if (typeof content === "string" && !live && content.trim()) {
-      items.push({ kind: "user", text: content, at });
+      items.push(userItem(content, 0));
     }
     set({ items });
     return;
@@ -186,10 +201,23 @@ export function onExit(stderr: string) {
   set({ items, running: false, streaming: null });
 }
 
-export async function send(text: string, context: AiContext) {
-  set({ items: [...state.items, { kind: "user", text, at: Date.now() }], running: true, stoppedByUser: false });
+/** What can come with a message: context text for @ mentions, images, connections Claude may read. */
+export interface SendExtras {
+  /** Appended to the message for Claude (hidden in the chat). */
+  context?: string;
+  images?: { mediaType: string; data: string }[];
+  /** Saved connections the user @-mentioned: Claude may read them in this chat. */
+  connections?: string[];
+  /** Labels shown under the message (e.g. "@orders", "schema.sql"). */
+  attachments?: string[];
+}
+
+export async function send(text: string, context: AiContext, extras: SendExtras = {}) {
+  const attachments = extras.attachments?.length ? extras.attachments : undefined;
+  set({ items: [...state.items, { kind: "user", text, at: Date.now(), attachments }], running: true, stoppedByUser: false });
   try {
-    await invoke("claude_send", { text, context });
+    const full = extras.context ? `${text}\n\n${extras.context}` : text;
+    await invoke("claude_send", { text: full, context, images: extras.images ?? [], connections: extras.connections ?? [] });
   } catch (err) {
     set({ items: [...state.items, { kind: "error", text: String(err) }], running: false });
   }

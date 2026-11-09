@@ -126,6 +126,33 @@ struct WindowState {
     context: AiContext,
     /// The connection's project folder, where Claude Code runs for this window.
     folder: Option<PathBuf>,
+    /// Other saved connections the user @-mentioned in this chat: Claude may read them (schema,
+    /// read-only queries) through the MCP tools' `connection` argument. Ids.
+    linked: HashSet<String>,
+    /// Sessions Tableboat opened for linked connections: connection id → session id.
+    linked_sessions: HashMap<String, String>,
+}
+
+impl WindowState {
+    /// Forget the linked connections (new chat or another project); returns their session ids to close.
+    fn unlink_all(&mut self) -> Vec<String> {
+        self.linked.clear();
+        self.linked_sessions.drain().map(|(_, sid)| sid).collect()
+    }
+}
+
+/// Close sessions opened for linked connections (in the background).
+fn close_sessions(app: &AppHandle, ids: Vec<String>) {
+    if ids.is_empty() {
+        return;
+    }
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let sessions = app.state::<crate::db::Sessions>();
+        for id in ids {
+            sessions.close(&id).await;
+        }
+    });
 }
 
 pub struct ClaudeHub {
@@ -161,15 +188,41 @@ impl ClaudeHub {
         let mut windows = self.windows.lock().unwrap();
         let w = windows.entry(window.to_string()).or_default();
         let moved = w.folder.as_ref().is_some_and(|f| *f != folder);
+        let mut to_close = Vec::new();
         if moved {
             // Dropping the process kills it (kill_on_drop); the next message starts a new chat.
             w.proc = None;
             w.claude_session = None;
             w.always_allowed.clear();
+            to_close = w.unlink_all();
         }
         w.folder = Some(folder);
         w.context = ctx;
+        drop(windows);
+        close_sessions(app, to_close);
         moved
+    }
+
+    /// Let Claude read these saved connections in this window's chat (the user @-mentioned them).
+    pub fn link(&self, window: &str, ids: &[String]) {
+        let mut windows = self.windows.lock().unwrap();
+        let w = windows.entry(window.to_string()).or_default();
+        w.linked.extend(ids.iter().filter(|id| !id.is_empty()).cloned());
+    }
+
+    /// Connections the user added to this window's chat.
+    pub fn linked(&self, window: &str) -> Vec<String> {
+        self.windows.lock().unwrap().get(window).map(|w| w.linked.iter().cloned().collect()).unwrap_or_default()
+    }
+
+    pub fn linked_session(&self, window: &str, connection_id: &str) -> Option<String> {
+        self.windows.lock().unwrap().get(window)?.linked_sessions.get(connection_id).cloned()
+    }
+
+    pub fn set_linked_session(&self, window: &str, connection_id: &str, session_id: &str) {
+        let mut windows = self.windows.lock().unwrap();
+        let w = windows.entry(window.to_string()).or_default();
+        w.linked_sessions.insert(connection_id.to_string(), session_id.to_string());
     }
 
     /// The window's project folder (from its current connection).
@@ -365,11 +418,14 @@ pub async fn claude_send(
     hub: tauri::State<'_, ClaudeHub>,
     text: String,
     context: AiContext,
+    images: Option<Vec<ImageInput>>,
+    connections: Option<Vec<String>>,
 ) -> Result<(), String> {
     let label = window.label().to_string();
     if hub.set_context(&app, &label, context) {
         let _ = app.emit_to(&label, "claude:reset", ());
     }
+    hub.link(&label, &connections.unwrap_or_default());
     let needs_start = {
         let mut windows = hub.windows.lock().unwrap();
         let w = windows.entry(label.clone()).or_default();
@@ -385,7 +441,14 @@ pub async fn claude_send(
         let proc = spawn(&app, &label, resume).await?;
         hub.windows.lock().unwrap().entry(label.clone()).or_default().proc = Some(proc);
     }
-    let line = json!({ "type": "user", "message": { "role": "user", "content": [{ "type": "text", "text": text }] } });
+    let mut content = vec![json!({ "type": "text", "text": text })];
+    for img in images.unwrap_or_default().into_iter().take(20) {
+        if !IMAGE_TYPES.contains(&img.media_type.as_str()) {
+            return Err(format!("Images must be PNG, JPEG, GIF or WebP (got {}).", img.media_type));
+        }
+        content.push(json!({ "type": "image", "source": { "type": "base64", "media_type": img.media_type, "data": img.data } }));
+    }
+    let line = json!({ "type": "user", "message": { "role": "user", "content": content } });
     let stdin = {
         let windows = hub.windows.lock().unwrap();
         windows.get(&label).and_then(|w| w.proc.as_ref()).map(|p| p.stdin.clone()).ok_or("Claude Code stopped.")?
@@ -413,12 +476,21 @@ pub async fn stop_window(hub: &ClaudeHub, label: &str) {
 
 /// Start a fresh chat (or switch to a past one with `resume`).
 #[tauri::command]
-pub async fn claude_new(window: tauri::Window, hub: tauri::State<'_, ClaudeHub>, resume: Option<String>) -> Result<(), String> {
+pub async fn claude_new(
+    app: AppHandle,
+    window: tauri::Window,
+    hub: tauri::State<'_, ClaudeHub>,
+    resume: Option<String>,
+) -> Result<(), String> {
     stop_window(&hub, window.label()).await;
-    let mut windows = hub.windows.lock().unwrap();
-    let w = windows.entry(window.label().to_string()).or_default();
-    w.claude_session = resume;
-    w.always_allowed.clear();
+    let to_close = {
+        let mut windows = hub.windows.lock().unwrap();
+        let w = windows.entry(window.label().to_string()).or_default();
+        w.claude_session = resume;
+        w.always_allowed.clear();
+        w.unlink_all()
+    };
+    close_sessions(&app, to_close);
     Ok(())
 }
 
@@ -531,4 +603,110 @@ mod tests {
         assert_eq!(folder_name("CON"), "con-db");
         assert!(folder_name(&"x".repeat(200)).len() <= 60);
     }
+}
+
+// ---------- attachments and voice ----------
+
+const IMAGE_TYPES: [&str; 4] = ["image/png", "image/jpeg", "image/gif", "image/webp"];
+const MAX_IMAGE_BYTES: u64 = 5 * 1024 * 1024;
+const MAX_TEXT_BYTES: usize = 256 * 1024;
+
+/// An image for Claude (base64), from a file, the clipboard or a drop.
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ImageInput {
+    media_type: String,
+    data: String,
+}
+
+#[derive(Serialize)]
+// Variant names ("text", "image") and the fields inside them ("mediaType") both camelCase.
+#[serde(rename_all = "camelCase", rename_all_fields = "camelCase", tag = "kind")]
+pub enum Attachment {
+    Text { name: String, path: String, text: String, truncated: bool, size: u64 },
+    Image { name: String, path: String, media_type: String, data: String, size: u64 },
+}
+
+fn image_type(path: &std::path::Path) -> Option<&'static str> {
+    match path.extension()?.to_str()?.to_ascii_lowercase().as_str() {
+        "png" => Some("image/png"),
+        "jpg" | "jpeg" => Some("image/jpeg"),
+        "gif" => Some("image/gif"),
+        "webp" => Some("image/webp"),
+        _ => None,
+    }
+}
+
+/// Read a file the user picked to attach to a message: images as base64 (up to 5 MB), text up
+/// to 256 KB (longer files are cut, and say so). Binary files other than images are refused.
+#[tauri::command]
+pub fn read_attachment(path: String) -> Result<Attachment, String> {
+    use base64::Engine as _;
+    let p = std::path::Path::new(&path);
+    let meta = std::fs::metadata(p).map_err(|e| format!("Could not read {path}: {e}"))?;
+    if !meta.is_file() {
+        return Err(format!("{path} is not a file."));
+    }
+    let name = p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| path.clone());
+    if let Some(media_type) = image_type(p) {
+        if meta.len() > MAX_IMAGE_BYTES {
+            return Err(format!("{name} is larger than 5 MB."));
+        }
+        let bytes = std::fs::read(p).map_err(|e| format!("Could not read {name}: {e}"))?;
+        let data = base64::engine::general_purpose::STANDARD.encode(bytes);
+        return Ok(Attachment::Image { name, path, media_type: media_type.into(), data, size: meta.len() });
+    }
+    let mut bytes = Vec::new();
+    use std::io::Read;
+    std::fs::File::open(p)
+        .and_then(|f| f.take(MAX_TEXT_BYTES as u64 + 1).read_to_end(&mut bytes))
+        .map_err(|e| format!("Could not read {name}: {e}"))?;
+    let truncated = bytes.len() > MAX_TEXT_BYTES;
+    bytes.truncate(MAX_TEXT_BYTES);
+    if bytes.contains(&0) {
+        return Err(format!("{name} isn't a text file (only text files and PNG/JPEG/GIF/WebP images can be attached)."));
+    }
+    // Cut at a character boundary if the 256 KB limit split one.
+    let text = match String::from_utf8(bytes) {
+        Ok(t) => t,
+        Err(e) => {
+            let valid = e.utf8_error().valid_up_to();
+            let bytes = e.into_bytes();
+            if !truncated || bytes.len() - valid > 3 {
+                return Err(format!("{name} isn't UTF-8 text."));
+            }
+            String::from_utf8_lossy(&bytes[..valid]).into_owned()
+        }
+    };
+    Ok(Attachment::Text { name, path, text, truncated, size: meta.len() })
+}
+
+/// Open Windows voice typing (Win+H) for the focused field: speech goes straight into the chat
+/// input. Built into Windows 10/11; no extra memory in Tableboat.
+#[tauri::command]
+pub fn voice_typing() -> Result<(), String> {
+    #[cfg(windows)]
+    unsafe {
+        use windows::Win32::UI::Input::KeyboardAndMouse::{
+            INPUT, INPUT_0, INPUT_KEYBOARD, KEYBD_EVENT_FLAGS, KEYBDINPUT, KEYEVENTF_KEYUP, SendInput, VIRTUAL_KEY,
+            VK_H, VK_LWIN,
+        };
+        let key = |vk: VIRTUAL_KEY, flags: KEYBD_EVENT_FLAGS| INPUT {
+            r#type: INPUT_KEYBOARD,
+            Anonymous: INPUT_0 { ki: KEYBDINPUT { wVk: vk, wScan: 0, dwFlags: flags, time: 0, dwExtraInfo: 0 } },
+        };
+        let inputs = [
+            key(VK_LWIN, KEYBD_EVENT_FLAGS(0)),
+            key(VK_H, KEYBD_EVENT_FLAGS(0)),
+            key(VK_H, KEYEVENTF_KEYUP),
+            key(VK_LWIN, KEYEVENTF_KEYUP),
+        ];
+        let sent = SendInput(&inputs, std::mem::size_of::<INPUT>() as i32);
+        if sent as usize != inputs.len() {
+            return Err("Windows didn't accept the voice typing shortcut. Press Win+H yourself.".into());
+        }
+        Ok(())
+    }
+    #[cfg(not(windows))]
+    Err("Voice typing uses Windows voice typing (Win+H).".into())
 }

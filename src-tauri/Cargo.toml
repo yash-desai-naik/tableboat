@@ -29,10 +29,13 @@ csv = "1.4"
 rust_xlsxwriter = "0.102"
 tiny_http = "0.12"
 mongodb = "3.10"
+# Already in the build (via other crates): images attached to Claude messages.
+base64 = "0.22"
 
 [target.'cfg(windows)'.dependencies]
-# Already built for Tauri's windowing; used to set the window's "Restore Down" rectangle.
-windows = { version = "0.62", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging"] }
+# Already built for Tauri's windowing; used for the window's "Restore Down" rectangle and to
+# open Windows voice typing (Win+H) from the Claude pane's mic button.
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_UI_Input_KeyboardAndMouse"] }
 
 [profile.release]
 # "thin" LTO in parallel units: builds several times faster and needs far less RAM than full
