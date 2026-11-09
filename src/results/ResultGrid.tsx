@@ -97,7 +97,7 @@ function readTheme() {
     linkColor: v("--accent"),
     cellHorizontalPadding: 8,
     cellVerticalPadding: 3,
-    headerFontStyle: "600 12px",
+    headerFontStyle: `600 ${s.gridFontSize}px`,
     baseFontStyle: `${s.gridFontSize}px`,
     markerFontStyle: "11px",
     fontFamily: v("--font-mono"),

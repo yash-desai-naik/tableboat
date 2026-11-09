@@ -5,47 +5,36 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
-  font-size: 13px;
+  font-size: var(--fs-md);
 }
 
 /* ---------- header ---------- */
 
 .ai-head {
-  height: var(--tabs-h);
+  height: 40px;
   flex: none;
   display: flex;
   align-items: center;
   gap: 2px;
-  padding: 0 6px 0 6px;
+  padding: 0 6px 0 14px;
   border-bottom: 1px solid var(--border);
 }
 .ai-chat-title {
+  flex: 1;
   min-width: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  height: 24px;
-  padding: 0 8px;
-  border: 0;
-  border-radius: var(--radius-control);
-  background: none;
-  color: var(--text);
-  font-weight: 600;
-  cursor: pointer;
-}
-.ai-chat-title:hover {
-  background: var(--bg-hover);
-}
-.ai-chat-title-text {
-  min-width: 0;
-  max-width: 240px;
+  margin-left: 8px;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+  color: var(--text);
+  font-size: var(--fs-md);
+  font-weight: 500;
 }
-.ai-chat-title svg:last-child {
-  flex: none;
-  color: var(--text-3);
+.ai-head .icon-btn {
+  color: var(--text-2);
+}
+.ai-head .icon-btn:hover {
+  color: var(--text);
 }
 
 .ai-mark {
@@ -93,13 +82,13 @@
 }
 .ai-empty-title {
   margin-top: 6px !important;
-  font-size: 14px;
+  font-size: var(--fs-md);
   font-weight: 600;
 }
 .ai-empty-note {
   max-width: 340px;
   color: var(--text-3);
-  font-size: 12px;
+  font-size: var(--fs-md);
 }
 .ai-suggestions {
   align-self: stretch;
@@ -122,13 +111,24 @@
   color: var(--text);
 }
 
-/* Your messages: a bordered box, full width. */
+/* Your messages: time on the right, then a bordered box, full width. */
+.ai-user-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+}
+.ai-time {
+  align-self: flex-end;
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+}
 .ai-user {
   padding: 8px 11px;
   border: 1px solid var(--border-strong);
-  border-radius: 8px;
+  border-radius: 6px;
   background: var(--bg-elevated);
-  line-height: 1.5;
+  line-height: 1.55;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -185,7 +185,7 @@
   padding: 0 4px;
   border-radius: 4px;
   background: var(--bg-active);
-  font-size: 12px;
+  font-size: var(--fs-md);
 }
 .ai-prose {
   margin: 0;
@@ -212,7 +212,7 @@
   padding: 3px 10px;
   background: var(--bg-chrome);
   color: var(--text-3);
-  font-size: 11.5px;
+  font-size: var(--fs-sm);
 }
 .ai-code pre {
   margin: 0;
@@ -220,7 +220,7 @@
   overflow-x: auto;
   background: var(--bg);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--fs-md);
   line-height: 1.5;
 }
 
@@ -248,7 +248,7 @@
   text-overflow: ellipsis;
   color: var(--text-3);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--fs-md);
 }
 .ai-tool-head:hover .ai-tool-sum {
   color: var(--text-2);
@@ -271,7 +271,7 @@
   width: 38px;
   padding: 6px 0 0 8px;
   color: var(--text-3);
-  font-size: 10.5px;
+  font-size: var(--fs-xs);
   font-weight: 600;
   letter-spacing: 0.04em;
 }
@@ -283,7 +283,7 @@
   padding: 6px 8px;
   overflow: auto;
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: var(--fs-sm);
   line-height: 1.45;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -297,15 +297,17 @@
   white-space: pre-wrap;
 }
 
-.ai-done {
+/* Status notes: italic and muted, like the extension's. */
+.ai-done,
+.ai-note-line {
   padding-left: 16px;
   color: var(--text-3);
-  font-size: 11px;
+  font-size: var(--fs-sm);
+  font-style: italic;
 }
 .ai-note-line {
-  align-self: center;
-  color: var(--text-3);
-  font-size: 11.5px;
+  margin: 4px 0;
+  font-size: var(--fs-md);
 }
 
 .ai-working {
@@ -313,7 +315,7 @@
   align-items: center;
   gap: 8px;
   color: var(--text-2);
-  font-size: 12.5px;
+  font-size: var(--fs-md);
 }
 .ai-working-word {
   color: var(--accent);
@@ -351,7 +353,7 @@
 .ai-perm.allowed .ai-perm-title,
 .ai-perm.denied .ai-perm-title {
   font-weight: 400;
-  font-size: 12px;
+  font-size: var(--fs-md);
   color: var(--text-3);
 }
 .ai-perm-detail {
@@ -363,7 +365,7 @@
   border-radius: 6px;
   background: var(--bg);
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: var(--fs-sm);
   white-space: pre-wrap;
 }
 .ai-perm.allowed .ai-perm-detail,
@@ -401,7 +403,7 @@
   border: 1px solid var(--border-strong);
   border-radius: 4px;
   color: var(--text-2);
-  font: 11px var(--font-mono);
+  font: 500 var(--fs-xs) var(--font-mono);
   text-align: center;
 }
 
@@ -415,7 +417,7 @@
   display: flex;
   flex-direction: column;
   border: 1px solid var(--border-strong);
-  border-radius: 12px;
+  border-radius: 8px;
   background: var(--bg-elevated);
   cursor: text;
 }
@@ -425,15 +427,15 @@
 .ai-input {
   display: block;
   width: 100%;
-  min-height: 44px;
+  min-height: 52px;
   max-height: 220px;
-  padding: 10px 12px 4px;
+  padding: 12px 14px 8px;
   border: 0;
   outline: none;
   resize: none;
   background: transparent;
   color: var(--text);
-  font: 13px / 1.45 var(--font-ui);
+  font: var(--fs-md) / 1.55 var(--font-ui);
 }
 .ai-input::placeholder {
   color: var(--text-3);
@@ -443,8 +445,45 @@
   align-items: center;
   gap: 6px;
   min-width: 0;
-  padding: 4px 6px 6px 8px;
+  padding: 7px 7px 7px 10px;
+  border-top: 1px solid var(--border);
   cursor: default;
+}
+.ai-chip-dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-3);
+}
+.ai-chip-dot.on {
+  background: #3fa36b;
+}
+.ai-mode {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 4px;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.ai-mode svg {
+  color: var(--text-3);
+}
+/* In a narrow pane, keep the connection's name readable: the mode shrinks to its icon. */
+.ai-compose {
+  container-type: inline-size;
+}
+@container (max-width: 480px) {
+  .ai-mode-text {
+    display: none;
+  }
+}
+.ai-chip:first-child {
+  min-width: 9ch;
 }
 .ai-chip {
   min-width: 0;
@@ -456,7 +495,7 @@
   border: 1px solid var(--border);
   border-radius: 999px;
   color: var(--text-2);
-  font-size: 11.5px;
+  font-size: var(--fs-sm);
   white-space: nowrap;
 }
 .ai-chip svg {
@@ -475,11 +514,11 @@
   flex: none;
   display: grid;
   place-items: center;
-  width: 26px;
-  height: 26px;
+  width: 30px;
+  height: 30px;
   padding: 0;
   border: 0;
-  border-radius: 50%;
+  border-radius: 6px;
   background: var(--accent);
   color: var(--accent-text);
   cursor: pointer;
@@ -488,8 +527,7 @@
   background: color-mix(in srgb, var(--accent) 88%, #000000);
 }
 .ai-send:disabled {
-  background: var(--bg-active);
-  color: var(--text-3);
+  opacity: 0.45;
   cursor: default;
 }
 .ai-send.stop {
@@ -504,7 +542,16 @@
   font-weight: 600;
 }
 .ai-li {
-  padding-left: 12px;
+  display: flex;
+  gap: 4px;
+  margin: 2px 0;
+}
+.ai-li-mark {
+  flex: none;
+  min-width: 2ch;
+  color: var(--text-2);
+  text-align: right;
+  padding-right: 0.5ch;
 }
 .ai-gap {
   height: 6px;
@@ -512,7 +559,7 @@
 .ai-table {
   margin: 6px 0;
   border-collapse: collapse;
-  font-size: 12px;
+  font-size: var(--fs-md);
 }
 .ai-table th,
 .ai-table td {

@@ -30,6 +30,10 @@ rust_xlsxwriter = "0.102"
 tiny_http = "0.12"
 mongodb = "3.10"
 
+[target.'cfg(windows)'.dependencies]
+# Already built for Tauri's windowing; used to set the window's "Restore Down" rectangle.
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging"] }
+
 [profile.release]
 # "thin" LTO in parallel units: builds several times faster and needs far less RAM than full
 # LTO with one unit, for a nearly identical app.

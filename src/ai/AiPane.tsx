@@ -23,7 +23,7 @@ import { displayName } from "../lib/connections";
 import { getSession, useSession } from "../lib/session";
 import { useSettings } from "../lib/settings";
 import { activeTab, getWorkspace, useWorkspace } from "../lib/workspace";
-import { CloseSmallIcon, DatabaseIcon } from "../shell/Icons";
+import { CloseSmallIcon } from "../shell/Icons";
 import { Menu, type MenuItem } from "../shell/Menu";
 
 /** What Claude can see through get_context, read fresh from the app's state. */
@@ -85,6 +85,25 @@ export function AiPane({ onClose }: { onClose: () => void }) {
     if (el && el.scrollHeight - el.scrollTop - el.clientHeight < 160) el.scrollTop = el.scrollHeight;
   }, [chat.items, chat.running]);
 
+  // Ctrl+Esc moves focus into the chat input, or back to the editor.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || !e.ctrlKey || e.shiftKey || e.altKey) return;
+      e.preventDefault();
+      const input = inputRef.current;
+      if (!input) return;
+      if (document.activeElement === input) {
+        input.blur();
+        const tab = activeTab();
+        if (tab?.type === "query") editors.get(tab.id)?.focus();
+      } else {
+        input.focus();
+      }
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, []);
+
   // The input grows with its text, up to a limit.
   useLayoutEffect(() => {
     const el = inputRef.current;
@@ -132,21 +151,22 @@ export function AiPane({ onClose }: { onClose: () => void }) {
       }}
     >
       <div className="ai-head">
+        <ClaudeMark />
+        <span className="ai-chat-title" title={title}>
+          {title}
+        </span>
         <button
-          className="ai-chat-title"
+          className="icon-btn small"
           title="Earlier chats"
           onClick={(e) => {
             const r = e.currentTarget.getBoundingClientRect();
-            void pastChats(r.left, r.bottom + 4);
+            void pastChats(r.right - 320, r.bottom + 4);
           }}
         >
-          <ClaudeMark />
-          <span className="ai-chat-title-text">{title}</span>
-          <ChevronDown />
+          <HistoryIcon />
         </button>
-        <span className="spacer" />
         <button className="icon-btn small" title="New chat" onClick={() => void newChat()}>
-          <PlusIcon />
+          <NewChatIcon />
         </button>
         <button className="icon-btn small" title="Close (Ctrl+Alt+B)" onClick={onClose}>
           <CloseSmallIcon />
@@ -188,7 +208,7 @@ export function AiPane({ onClose }: { onClose: () => void }) {
             ref={inputRef}
             className="ai-input"
             rows={1}
-            placeholder={status?.installed === false ? "Claude Code isn't installed" : "Ask Claude…  (Enter to send, Shift+Enter for a new line)"}
+            placeholder={status?.installed === false ? "Claude Code isn't installed" : "Ctrl+Esc to focus or unfocus Claude"}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => {
@@ -201,10 +221,9 @@ export function AiPane({ onClose }: { onClose: () => void }) {
           />
           <div className="ai-composer-bar">
             <span className="ai-chip" title={sees ? `Claude sees ${sees}` : "Not connected to a database"}>
-              <DatabaseIcon size={12} />
+              <span className={sees ? "ai-chip-dot on" : "ai-chip-dot"} />
               <span className="ai-chip-text">{sees ?? "Not connected"}</span>
             </span>
-            <span className="spacer" />
             {status?.installed && (
               <span
                 className="ai-chip ai-model"
@@ -213,6 +232,11 @@ export function AiPane({ onClose }: { onClose: () => void }) {
                 {model ? modelLabel(model) : "Default model"}
               </span>
             )}
+            <span className="spacer" />
+            <span className="ai-mode" title="Claude reads your schema and runs read-only queries freely; anything that changes data asks you first">
+              <ShieldIcon />
+              <span className="ai-mode-text">Asks before writes</span>
+            </span>
             {chat.running ? (
               <button
                 className="ai-send stop"
@@ -294,7 +318,16 @@ function Item({ item }: { item: ChatItem }) {
   const [open, setOpen] = useState(false);
   switch (item.kind) {
     case "user":
-      return <div className="ai-user">{item.text}</div>;
+      return (
+        <div className="ai-user-wrap">
+          {item.at !== undefined && (
+            <div className="ai-time" title={new Date(item.at).toLocaleString()}>
+              {new Date(item.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+            </div>
+          )}
+          <div className="ai-user">{item.text}</div>
+        </div>
+      );
     case "assistant":
       return (
         <Step dot="text">
@@ -405,14 +438,21 @@ function ClaudeMark({ size = 14, spin = false }: { size?: number; spin?: boolean
   );
 }
 
-const ChevronDown = () => (
-  <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
-    <path d="M2 3.5 5 6.5 8 3.5" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+const HistoryIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+    <circle cx="8" cy="8" r="6" />
+    <path d="M8 4.8V8l2.2 1.6" />
   </svg>
 );
-const PlusIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
-    <path d="M7 2.5v9M2.5 7h9" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+const NewChatIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M8 2.2a5.8 5.8 0 1 0 2.7 10.9L13.8 14l-.8-3A5.8 5.8 0 0 0 8 2.2Z" />
+    <path d="M8 5.6v4.8M5.6 8h4.8" />
+  </svg>
+);
+const ShieldIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round">
+    <path d="M8 1.8 2.8 3.8v4c0 3.2 2.2 5.4 5.2 6.4 3-1 5.2-3.2 5.2-6.4v-4Z" />
   </svg>
 );
 const ArrowUpIcon = () => (
@@ -541,8 +581,20 @@ function Prose({ text }: { text: string }) {
     const bullet = /^(\s*)[-*]\s+(.*)$/.exec(line);
     const numbered = /^(\s*)(\d+)\.\s+(.*)$/.exec(line);
     if (heading) blocks.push(<div key={blocks.length} className="ai-h">{inline(heading[2])}</div>);
-    else if (bullet) blocks.push(<div key={blocks.length} className="ai-li" style={{ paddingLeft: 12 + bullet[1].length * 6 }}>• {inline(bullet[2])}</div>);
-    else if (numbered) blocks.push(<div key={blocks.length} className="ai-li" style={{ paddingLeft: 12 + numbered[1].length * 6 }}>{numbered[2]}. {inline(numbered[3])}</div>);
+    else if (bullet)
+      blocks.push(
+        <div key={blocks.length} className="ai-li" style={{ paddingLeft: 4 + bullet[1].length * 8 }}>
+          <span className="ai-li-mark">•</span>
+          <span>{inline(bullet[2])}</span>
+        </div>,
+      );
+    else if (numbered)
+      blocks.push(
+        <div key={blocks.length} className="ai-li" style={{ paddingLeft: 4 + numbered[1].length * 8 }}>
+          <span className="ai-li-mark">{numbered[2]}.</span>
+          <span>{inline(numbered[3])}</span>
+        </div>,
+      );
     else if (line.trim() === "") blocks.push(<div key={blocks.length} className="ai-gap" />);
     else blocks.push(<div key={blocks.length}>{inline(line)}</div>);
     i++;

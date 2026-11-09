@@ -32,7 +32,7 @@
   background: transparent;
   color: var(--text);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--fs-md);
   text-align: left;
 }
 .db-switch:hover {
@@ -56,7 +56,7 @@
 }
 .sidebar-filter .input {
   height: 26px;
-  font-size: 12px;
+  font-size: var(--fs-md);
 }
 
 .tree {
@@ -66,7 +66,7 @@
   padding-bottom: 8px;
   outline: none;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--fs-md);
 }
 
 .tree-note {
@@ -87,7 +87,7 @@
   padding: 0 8px 0 6px;
   color: var(--text-3);
   font-family: var(--font-ui);
-  font-size: 11px;
+  font-size: var(--fs-sm);
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -138,7 +138,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   color: var(--text-3);
-  font-size: 11px;
+  font-size: var(--fs-sm);
 }
 
 mark {
@@ -204,7 +204,7 @@ mark {
   white-space: nowrap;
   text-overflow: ellipsis;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--fs-md);
 }
 /* Preview tabs are italic, as in VS Code and TablePlus. */
 .tab.preview .tab-title {
@@ -248,18 +248,18 @@ mark {
   text-overflow: ellipsis;
   color: var(--text-3);
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: var(--fs-sm);
 }
 .palette-kind {
   flex: none;
   width: 70px;
   text-align: right;
   color: var(--text-3);
-  font-size: 11px;
+  font-size: var(--fs-sm);
 }
 .palette-title.mono {
   font-family: var(--font-mono);
-  font-size: 12.5px;
+  font-size: var(--fs-md);
 }
 .palette-note {
   padding: 12px;

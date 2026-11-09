@@ -3,7 +3,7 @@ import { useSyncExternalStore } from "react";
 import { refreshAll } from "./refresh";
 
 export type ChatItem =
-  | { kind: "user"; text: string }
+  | { kind: "user"; text: string; /** When it was sent (ms since 1970), if known. */ at?: number }
   | { kind: "assistant"; text: string; streaming?: boolean }
   | { kind: "tool"; id: string; name: string; input: unknown; result?: string; isError?: boolean }
   | { kind: "permission"; id: string; toolName: string; input: Record<string, unknown>; state: "pending" | "allowed" | "denied" }
@@ -133,6 +133,9 @@ export function applyEvent(ev: Record<string, unknown>, live: boolean) {
   if (type === "user") {
     const msg = ev.message as { content?: unknown };
     const content = msg?.content;
+    // Saved chats carry an ISO timestamp per message.
+    const parsed = typeof ev.timestamp === "string" ? Date.parse(ev.timestamp) : NaN;
+    const at = Number.isNaN(parsed) ? undefined : parsed;
     if (Array.isArray(content)) {
       for (const block of content) {
         const b = block as { type: string; tool_use_id?: string; content?: unknown; is_error?: boolean; text?: string };
@@ -144,11 +147,11 @@ export function applyEvent(ev: Record<string, unknown>, live: boolean) {
             if (live && !b.is_error && tool.name.endsWith("execute_sql")) state.wroteData = true;
           }
         } else if (b.type === "text" && !live && b.text?.trim()) {
-          items.push({ kind: "user", text: b.text });
+          items.push({ kind: "user", text: b.text, at });
         }
       }
     } else if (typeof content === "string" && !live && content.trim()) {
-      items.push({ kind: "user", text: content });
+      items.push({ kind: "user", text: content, at });
     }
     set({ items });
     return;
@@ -182,7 +185,7 @@ export function onExit(stderr: string) {
 }
 
 export async function send(text: string, context: AiContext) {
-  set({ items: [...state.items, { kind: "user", text }], running: true, stoppedByUser: false });
+  set({ items: [...state.items, { kind: "user", text, at: Date.now() }], running: true, stoppedByUser: false });
   try {
     await invoke("claude_send", { text, context });
   } catch (err) {

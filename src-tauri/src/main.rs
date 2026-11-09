@@ -23,10 +23,10 @@ fn main() {
         }))
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
-            // Open maximized; "Restore Down" gives a window that fits the screen, centered.
-            // (The UI shows the window once it has painted, so there is no white flash.)
+            // Fit the screen, centered; the UI then maximizes and shows the window once it has
+            // painted (no white flash), so "Restore Down" returns to this size and place.
             if let Some(main) = app.get_webview_window("main") {
-                commands::place_maximized(&main, None);
+                commands::place_centered(&main, None);
             }
             conn::secrets::init()?;
             let dir = paths::data_dir(app.handle())?;
@@ -66,6 +66,7 @@ fn main() {
             commands::session_open,
             commands::session_close,
             commands::window_new,
+            commands::window_fit_restore,
             commands::meta_databases,
             commands::meta_objects,
             commands::meta_search,

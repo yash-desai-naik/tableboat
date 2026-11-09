@@ -1,0 +1,74 @@
+/* Typography hierarchy for the whole app (loaded last, so it wins).
+   One family (JetBrains Mono, see --font-ui); levels come from size, weight, case and colour:
+     700  uppercase section labels, dialog and page titles
+     600  names (connections, objects, tools), table headers, the active tab
+     500  controls: buttons, segmented tabs, menu items, chips, key caps
+     400  everything else: body text, data, hints */
+
+/* Uppercase section labels: small, bold, tracked, muted. */
+.pane-title,
+.tree-section,
+.form-section-head,
+[cmdk-group-heading] {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.ai-io-label {
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+/* Titles */
+.dialog-title,
+.connected-head h2,
+.welcome h1 {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* Names and headers */
+.conn-name,
+.object-name,
+.ai-tool-name,
+.ai-perm-title,
+.ai-empty-title,
+th {
+  font-weight: 600;
+}
+.tab.active .tab-title,
+.rtab.active,
+.seg.active {
+  font-weight: 600;
+}
+
+/* Controls */
+.btn,
+.small-btn,
+.seg,
+.rtab,
+.menu-item,
+.ai-chip,
+.ai-suggestion,
+.ai-perm-option,
+kbd {
+  font-weight: 500;
+}
+.btn.primary {
+  font-weight: 600;
+}
+
+/* Secondary text stays regular. */
+.muted,
+.small,
+.menu-hint,
+.conn-target,
+.tree-meta,
+.tree-count,
+.palette-meta,
+.msg-time,
+.ai-done,
+.ai-note-line {
+  font-weight: 400;
+}
