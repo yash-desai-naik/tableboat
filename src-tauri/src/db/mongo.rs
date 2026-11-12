@@ -16,7 +16,7 @@ use percent_encoding::{NON_ALPHANUMERIC, utf8_percent_encode};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use tokio::sync::Notify;
 
 #[derive(Clone)]

@@ -374,6 +374,27 @@ fn sql_literal(col: &Column, v: Option<&str>, dialect: Dialect) -> String {
     }
 }
 
+/// Rows as multi-row INSERT statements (`rows_per_statement` rows each), for SQL dumps.
+/// Only the columns in `sel.cols` are written (dumps leave out generated columns).
+pub fn insert_statements(rs: &ResultSet, sel: &Selection<'_>, dialect: Dialect, table: &str, rows_per_statement: usize) -> String {
+    let q = |s: &str| match dialect {
+        Dialect::Mysql => format!("`{}`", s.replace('`', "``")),
+        Dialect::Sqlite => format!("\"{}\"", s.replace('"', "\"\"")),
+    };
+    let cols = sel.cols.iter().map(|&c| q(&rs.columns[c].name)).collect::<Vec<_>>().join(", ");
+    let mut out = String::new();
+    for chunk in sel.rows.chunks(rows_per_statement.max(1)) {
+        out.push_str(&format!("INSERT INTO {} ({cols}) VALUES
+", q(table)));
+        for (i, row) in chunk.iter().enumerate() {
+            let values = sel.cols.iter().map(|&c| sql_literal(&rs.columns[c], cell(row, c), dialect)).collect::<Vec<_>>().join(", ");
+            out.push_str(&format!("({values}){}
+", if i + 1 == chunk.len() { ";" } else { "," }));
+        }
+    }
+    out
+}
+
 pub fn export_file(
     rs: &ResultSet,
     path: &std::path::Path,

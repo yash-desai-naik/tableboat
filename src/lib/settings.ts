@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { useSyncExternalStore } from "react";
 
 export type Theme = "system" | "light" | "dark";
@@ -80,6 +81,21 @@ async function flush() {
     console.error("Could not save settings", err);
   }
 }
+
+/** Settings changed outside this window: by Claude (`settings:changed`), another window, or
+ *  `tb settings set` (re-read when the window gets focus). Local changes still being saved win. */
+function adopt(saved: Settings) {
+  if (!current) return;
+  const next = { ...saved, ...pending };
+  if (JSON.stringify(next) === JSON.stringify(current)) return;
+  current = next;
+  emit();
+}
+
+void listen<Settings>("settings:changed", (e) => adopt(e.payload));
+window.addEventListener("focus", () => {
+  if (current) void invoke<Settings>("get_settings").then(adopt, () => {});
+});
 
 export function useSettings(): Settings {
   return useSyncExternalStore(subscribe, getSettings);

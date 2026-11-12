@@ -1,3 +1,4 @@
+import { listen } from "@tauri-apps/api/event";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ask, message, open as openFile, save as saveFile } from "@tauri-apps/plugin-dialog";
 import {
@@ -14,6 +15,7 @@ import {
 } from "../lib/connections";
 import { connect, useSession } from "../lib/session";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { invoke } from "@tauri-apps/api/core";
 import { lastConnection } from "../lib/persist";
 import { getSettings } from "../lib/settings";
 import { Dialog } from "../shell/Dialog";
@@ -36,11 +38,17 @@ export const connectionActions = {
 
 let startupChecked = false;
 
-/** The last connection, once per app start, for the main window (when the setting is on). */
+/**
+ * The connection to open at start-up, once, for the main window: the one asked for on the
+ * command line (`tb open <connection>`), else the last one (when the setting is on).
+ */
 async function startupConnection(): Promise<string | null> {
   if (startupChecked) return null;
   startupChecked = true;
-  if (getCurrentWindow().label !== "main" || !getSettings().reopenLastConnection) return null;
+  if (getCurrentWindow().label !== "main") return null;
+  const asked = await invoke<string | null>("take_launch_connection").catch(() => null);
+  if (asked) return asked;
+  if (!getSettings().reopenLastConnection) return null;
   const id = await lastConnection();
   if (!id) return null;
   const c = (await api.list()).find((x) => x.id === id);
@@ -70,6 +78,17 @@ export function ConnectionList() {
       setLoaded(true);
     }
   }
+
+  // Connections added or changed by Claude, or by `tb` (seen when the window gets focus).
+  useEffect(() => {
+    const un = listen("connections:changed", () => void reload());
+    const onFocus = () => void reload();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      void un.then((f) => f());
+      window.removeEventListener("focus", onFocus);
+    };
+  }, []);
 
   useEffect(() => {
     void (async () => {

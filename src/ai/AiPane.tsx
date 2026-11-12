@@ -274,7 +274,27 @@ const TOOL_NAMES: Record<string, string> = {
   get_schema: "Schema",
   run_read_query: "Read query",
   execute_sql: "Execute SQL",
+  list_connections: "Connections",
+  get_settings: "Settings",
+  update_settings: "Change settings",
+  save_connection: "Save connection",
+  test_connection: "Test connection",
+  delete_connection: "Delete connection",
+  export_connections: "Export connections",
+  import_connections: "Import connections",
+  export_data: "Export data",
+  dump_database: "Export database",
+  open_connection: "Open connection",
 };
+
+/** Tool input with passwords hidden (in fields and inside connection URLs). */
+function masked(input: unknown): unknown {
+  if (!input || typeof input !== "object") return input;
+  const out: Record<string, unknown> = { ...(input as Record<string, unknown>) };
+  for (const k of ["password", "ssh_password"]) if (typeof out[k] === "string" && out[k]) out[k] = "••••";
+  if (typeof out.url === "string") out.url = out.url.replace(/(\/[^/:@\s]*:)[^@/\s]*@/g, "$1••••@");
+  return out;
+}
 
 function toolTitle(name: string): string {
   const own = /^tableboat › (.+)$/.exec(name) ?? /^mcp__tableboat__(.+)$/.exec(name);
@@ -372,15 +392,21 @@ function Item({ item }: { item: ChatItem }) {
 
 function Permission({ item }: { item: Extract<ChatItem, { kind: "permission" }> }) {
   const name = toolTitle(item.toolName.replace(/^mcp__tableboat__/, "tableboat › "));
+  // Tableboat's app tools send their own question and a readable summary.
   const detail =
-    (item.input.sql as string) ?? (item.input.command as string) ?? (item.input.file_path as string) ?? JSON.stringify(item.input, null, 2);
+    (item.input.summary as string) ??
+    (item.input.sql as string) ??
+    (item.input.command as string) ??
+    (item.input.file_path as string) ??
+    JSON.stringify(masked(item.input), null, 2);
   const first = useRef<HTMLButtonElement>(null);
   const pending = item.state === "pending";
   useEffect(() => {
     if (pending) first.current?.focus();
   }, [pending]);
   const choose = (allow: boolean, always: boolean) => void answerPermission(item.id, allow, always);
-  const question = /sql/i.test(item.toolName) ? "Run this SQL?" : `Allow Claude to use ${name}?`;
+  const question =
+    (item.input.question as string) ?? (/sql/i.test(item.toolName) ? "Run this SQL?" : `Allow Claude to use ${name}?`);
   return (
     <div
       className={`ai-perm ${item.state}`}
@@ -446,15 +472,16 @@ const ShieldIcon = () => (
 /** A tool's input for the IN box: SQL or a command as is, anything else as JSON. */
 function toolInput(input: unknown): string {
   if (!input || typeof input !== "object") return String(input ?? "");
-  const i = input as Record<string, unknown>;
+  const i = masked(input) as Record<string, unknown>;
   for (const k of ["sql", "query", "command"]) if (typeof i[k] === "string") return i[k] as string;
-  return JSON.stringify(input, null, 2);
+  return JSON.stringify(i, null, 2);
 }
 
 function toolSummary(input: unknown): string {
   if (!input || typeof input !== "object") return "";
-  const i = input as Record<string, unknown>;
-  const s = (i.sql ?? i.table ?? i.command ?? i.file_path ?? i.pattern ?? i.query ?? "") as string;
+  const i = masked(input) as Record<string, unknown>;
+  if (i.changes && typeof i.changes === "object") return JSON.stringify(i.changes).slice(0, 80);
+  const s = (i.sql ?? i.table ?? i.command ?? i.file_path ?? i.pattern ?? i.query ?? i.file ?? i.name ?? i.connection ?? i.url ?? "") as string;
   return typeof s === "string" ? s.replace(/\s+/g, " ").slice(0, 80) : "";
 }
 

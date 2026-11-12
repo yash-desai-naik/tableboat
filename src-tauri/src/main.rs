@@ -3,12 +3,11 @@
 
 mod ai;
 mod commands;
-mod conn;
-mod db;
-mod paths;
 mod settings;
 mod state;
 
+// The window-free core (connections, databases, paths), shared with the `tb` command line.
+use tableboat_core::{conn, db, paths};
 use tauri::{Manager, WindowEvent};
 
 /// Reopen the extra windows that were open when Tableboat last closed, each with its
@@ -19,7 +18,7 @@ fn reopen_windows(app: &tauri::AppHandle) {
         return;
     }
     let store = app.state::<conn::store::ConnectionStore>();
-    for id in state::saved_windows(app) {
+    for id in state::saved_windows() {
         let Some(c) = store.get(&id) else { continue };
         if !c.save_password && c.engine != conn::model::Engine::Sqlite {
             continue;
@@ -28,16 +27,50 @@ fn reopen_windows(app: &tauri::AppHandle) {
     }
 }
 
+/// `--connect <id>` (or `--connect=<id>`): open that saved connection (`tb open <connection>`).
+fn connect_arg(args: &[String]) -> Option<String> {
+    let mut it = args.iter();
+    while let Some(a) = it.next() {
+        if a == "--connect" {
+            return it.next().cloned();
+        }
+        if let Some(id) = a.strip_prefix("--connect=") {
+            return Some(id.to_string());
+        }
+    }
+    None
+}
+
+/// The connection asked for on the command line at start-up, for the main window (taken once).
+#[derive(Default)]
+struct LaunchConnect(std::sync::Mutex<Option<String>>);
+
+#[tauri::command]
+fn take_launch_connection(launch: tauri::State<'_, LaunchConnect>) -> Option<String> {
+    launch.0.lock().unwrap().take()
+}
+
 fn main() {
+    let launch = connect_arg(&std::env::args().collect::<Vec<_>>());
     tauri::Builder::default()
         // One process for every window: a second launch focuses the running app instead
-        // of starting another WebView2 browser process.
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+        // of starting another WebView2 browser process. With --connect (tb open), the running
+        // app opens that connection in a new window.
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            if let Some(id) = connect_arg(&args) {
+                let app = app.clone();
+                // Not on this (main) thread: building a window here would deadlock.
+                tauri::async_runtime::spawn(async move {
+                    let _ = commands::open_window(&app, Some(id));
+                });
+                return;
+            }
             if let Some(window) = app.webview_windows().values().next() {
                 let _ = window.unminimize();
                 let _ = window.set_focus();
             }
         }))
+        .manage(LaunchConnect(std::sync::Mutex::new(launch)))
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             // Fit the screen, centered; the UI then maximizes and shows the window once it has
@@ -46,8 +79,8 @@ fn main() {
                 commands::place_centered(&main, None);
             }
             conn::secrets::init()?;
-            let dir = paths::data_dir(app.handle())?;
-            app.manage(settings::SettingsStore::load(app.handle())?);
+            let dir = paths::data_dir()?;
+            app.manage(settings::SettingsStore::load()?);
             app.manage(conn::store::ConnectionStore::load(&dir)?);
             app.manage(db::Sessions::default());
             app.manage(db::query::Runs::default());
@@ -70,7 +103,7 @@ fn main() {
                     // windows within a moment), the process ends first and the list is kept.
                     tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
                     if !app.webview_windows().is_empty() {
-                        app.state::<state::WindowList>().set(&app, &label, None);
+                        app.state::<state::WindowList>().set(&label, None);
                     }
                 });
             }
@@ -92,6 +125,7 @@ fn main() {
             commands::session_close,
             commands::window_new,
             commands::window_fit_restore,
+            take_launch_connection,
             commands::meta_databases,
             commands::meta_objects,
             commands::meta_search,

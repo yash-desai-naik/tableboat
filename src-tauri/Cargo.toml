@@ -4,6 +4,23 @@ version = "0.1.0"
 description = "A small, fast database client"
 edition = "2024"
 publish = false
+default-run = "tableboat"
+
+# The code with no window in it (connections, databases, settings, Claude helpers, the MCP
+# tool server), shared by the desktop app and the `tb` command line.
+[lib]
+name = "tableboat_core"
+path = "src/lib.rs"
+
+# The desktop app.
+[[bin]]
+name = "tableboat"
+path = "src/main.rs"
+
+# The command line: `tb connections`, `tb query`, `tb ask`… (installed next to the app).
+[[bin]]
+name = "tb"
+path = "src/bin/tb/main.rs"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
@@ -14,7 +31,7 @@ tauri-plugin-single-instance = "2"
 tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "sync", "time", "process"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "sync", "time", "process", "signal"] }
 mysql_async = { version = "0.37", default-features = false, features = ["default-rustls-ring"] }
 rusqlite = { version = "0.41", features = ["bundled", "column_decltype"] }
 russh = { version = "0.65", default-features = false, features = ["flate2", "ring", "rsa"] }
@@ -31,11 +48,15 @@ tiny_http = "0.12"
 mongodb = "3.10"
 # Already in the build (via other crates): images attached to Claude messages.
 base64 = "0.22"
+# Already in the build: %APPDATA% without needing Tauri (the `tb` command line).
+dirs = "7"
+# The `tb` command line's arguments and help.
+clap = { version = "4", features = ["derive"] }
 
 [target.'cfg(windows)'.dependencies]
 # Already built for Tauri's windowing; used for the window's "Restore Down" rectangle and to
 # open Windows voice typing (Win+H) from the Claude pane's mic button.
-windows = { version = "0.62", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_UI_Input_KeyboardAndMouse"] }
+windows = { version = "0.62", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_UI_Input_KeyboardAndMouse", "Win32_System_Console"] }
 
 [profile.release]
 # "thin" LTO in parallel units: builds several times faster and needs far less RAM than full

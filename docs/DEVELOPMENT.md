@@ -20,6 +20,28 @@ With the browser developer tools (open `http://127.0.0.1:9222` in Edge or Chrome
 $env:WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS="--remote-debugging-port=9222"; npx tauri dev
 ```
 
+## Code layout (Rust, `src-tauri\src\`)
+
+- `lib.rs`: the window-free core `tableboat_core`, shared by both programs. It holds:
+  - `conn`: saved connections, URLs, passwords;
+  - `db`: engines, queries, results, the statement splitter, exports and dumps (`db/export.rs`);
+  - `prefs`: settings;
+  - `claude`: claude.exe and per-connection projects;
+  - `mcp`: the tool server Claude uses, behind a `Host` trait: database tools in `mcp.rs`, app
+    tools (settings, connections, exports) in `mcp_app.rs`; tools that change something ask the
+    user through `Host::ask` themselves (`claude::ASKS_ITSELF`);
+  - `paths`.
+- `main.rs` with `ai`, `commands`, `settings`, `state`: the desktop app (Tauri). `ai/host.rs` plugs
+  each window into the tool server.
+- `bin/tb/`: the `tb` command line (see [CLI.md](CLI.md)).
+
+```powershell
+cd src-tauri
+cargo build --bin tb                 # just the command line (fast)
+.\target\debug\tb.exe connections
+$env:TABLEBOAT_DATA_DIR = "$env:TEMP\tb-test"   # try commands without touching your real connections
+```
+
 ## Checks
 
 ```powershell
@@ -37,7 +59,9 @@ npx tauri build
 
 - About 6-7 minutes, up to about 1.5 GB of RAM near the end.
 - Installer: `src-tauri\target\release\bundle\nsis\Tableboat_<version>_x64-setup.exe`.
-  It installs for the current Windows user only (no admin prompt) into `%LOCALAPPDATA%\Tableboat`.
+  It installs for the current Windows user only (no admin prompt) into `%LOCALAPPDATA%\Tableboat`:
+  the app and `tb.exe`, and adds that folder to the user PATH (`src-tauri\windows\hooks.nsh`;
+  uninstalling takes it off again).
 - Running a newer setup upgrades in place. To change the version Windows shows, edit `"version"`
   in `src-tauri\tauri.conf.json` first.
 - The app alone, without the installer: `npx tauri build --no-bundle`

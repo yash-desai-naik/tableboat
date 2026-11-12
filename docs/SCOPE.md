@@ -101,6 +101,7 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done and checked by you.
 - [ ] Sessions listed and resumable
 - [ ] "Insert into editor" and "Run" buttons on SQL in replies
 - [ ] Tableboat gives Claude the current connection's context (schema, selected table, current query) through a local MCP server; read-only by default, and write queries need your approval
+- [x] Claude can also work the app itself (pane and `tb ask`): read and change settings, create, edit, test and delete saved connections, export/import connection files, export a table or query to a file, export a whole database (SQL script; MongoDB: JSON per collection), open a connection in a new window. Reading is free; every change asks first with a plain summary (never showing passwords)
 
 ---
 

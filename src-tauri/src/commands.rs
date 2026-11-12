@@ -4,51 +4,15 @@ use crate::conn::model::{Connection, ConnectionSummary, Engine, Secrets};
 use crate::conn::store::ConnectionStore;
 use crate::conn::{secrets, url};
 use crate::db::{self, ServerInfo, Sessions};
-use crate::paths::{data_dir, write_atomic};
 use serde::Serialize;
 use std::sync::atomic::{AtomicU32, Ordering};
 use tauri::{AppHandle, Manager, State, WebviewUrl, WebviewWindowBuilder, Window};
 
-fn summary(conn: Connection) -> ConnectionSummary {
-    let has = |field| secrets::get(&conn.id, field).ok().flatten().is_some();
-    ConnectionSummary {
-        has_password: has(secrets::PASSWORD),
-        has_ssh_password: has(secrets::SSH_PASSWORD),
-        has_ssh_passphrase: has(secrets::SSH_PASSPHRASE),
-        connection: conn,
-    }
-}
-
-fn validate(conn: &Connection) -> Result<(), String> {
-    match conn.engine {
-        Engine::Sqlite => {
-            if conn.file.as_deref().unwrap_or("").trim().is_empty() {
-                return Err("Choose a database file.".into());
-            }
-        }
-        _ => {
-            if conn.host.trim().is_empty() {
-                return Err("Enter the host.".into());
-            }
-        }
-    }
-    if conn.ssh.enabled && (conn.ssh.host.trim().is_empty() || conn.ssh.user.trim().is_empty()) {
-        return Err("Enter the SSH server and user, or turn SSH off.".into());
-    }
-    let hex = conn.color.trim_start_matches('#');
-    if hex.len() != 6 || !hex.chars().all(|c| c.is_ascii_hexdigit()) {
-        return Err("The colour must look like #1f6feb.".into());
-    }
-    Ok(())
-}
-
-fn known_hosts(app: &AppHandle) -> Result<std::path::PathBuf, String> {
-    Ok(data_dir(app)?.join("known_hosts"))
-}
+use crate::conn::ops::{self, known_hosts, validate};
 
 #[tauri::command]
 pub fn connections_list(store: State<'_, ConnectionStore>) -> Vec<ConnectionSummary> {
-    store.list().into_iter().map(summary).collect()
+    store.list().into_iter().map(ops::summary).collect()
 }
 
 /// Save a new or edited connection. `secrets`: omitted fields stay as stored, "" removes.
@@ -58,33 +22,17 @@ pub fn connection_save(
     connection: Connection,
     secrets: Secrets,
 ) -> Result<ConnectionSummary, String> {
-    validate(&connection)?;
-    let mut secrets = secrets;
-    if !connection.save_password {
-        // "Ask every time": never keep the database password.
-        secrets.password = Some(String::new());
-    }
-    let saved = store.upsert(connection)?;
-    secrets::apply(&saved.id, &secrets)?;
-    Ok(summary(saved))
+    ops::save(&store, connection, secrets)
 }
 
 #[tauri::command]
 pub fn connection_delete(store: State<'_, ConnectionStore>, id: String) -> Result<(), String> {
-    store.delete(&id)?;
-    secrets::delete_all(&id)
+    ops::delete(&store, &id)
 }
 
 #[tauri::command]
 pub fn connection_duplicate(store: State<'_, ConnectionStore>, id: String) -> Result<ConnectionSummary, String> {
-    let original = store.get(&id).ok_or("That connection no longer exists.")?;
-    let stored = secrets::load(&id)?;
-    let mut copy = original.clone();
-    copy.id = String::new();
-    copy.name = format!("{} copy", original.display_name());
-    let saved = store.upsert(copy)?;
-    secrets::apply(&saved.id, &stored)?;
-    Ok(summary(saved))
+    ops::duplicate(&store, &id)
 }
 
 #[derive(Serialize)]
@@ -101,39 +49,14 @@ pub fn connection_parse_url(input: String) -> Result<ParsedUrl, String> {
 }
 
 #[tauri::command]
-pub fn connection_url(
-    store: State<'_, ConnectionStore>,
-    id: String,
-    include_passwords: bool,
-) -> Result<String, String> {
-    let conn = store.get(&id).ok_or("That connection no longer exists.")?;
-    let stored = if include_passwords { secrets::load(&id)? } else { Secrets::default() };
-    Ok(url::to_url(&conn, &stored, include_passwords))
+pub fn connection_url(store: State<'_, ConnectionStore>, id: String, include_passwords: bool) -> Result<String, String> {
+    ops::to_url(&store, &id, include_passwords)
 }
 
 /// Write every saved connection as one URL per line.
 #[tauri::command]
-pub fn connections_export(
-    store: State<'_, ConnectionStore>,
-    path: String,
-    include_passwords: bool,
-) -> Result<usize, String> {
-    let mut lines = vec![
-        "# Tableboat connections – one connection URL per line.".to_string(),
-        if include_passwords {
-            "# This file CONTAINS PASSWORDS. Keep it private.".to_string()
-        } else {
-            "# Passwords are not included.".to_string()
-        },
-    ];
-    let all = store.list();
-    for conn in &all {
-        let stored = if include_passwords { secrets::load(&conn.id)? } else { Secrets::default() };
-        lines.push(url::to_url(conn, &stored, include_passwords));
-    }
-    write_atomic(std::path::Path::new(&path), &(lines.join("\r\n") + "\r\n"))
-        .map_err(|e| format!("Could not write {path}: {e}"))?;
-    Ok(all.len())
+pub fn connections_export(store: State<'_, ConnectionStore>, path: String, include_passwords: bool) -> Result<usize, String> {
+    ops::export_file(&store, std::path::Path::new(&path), include_passwords)
 }
 
 #[derive(Serialize)]
@@ -146,23 +69,7 @@ pub struct ImportResult {
 /// Read a file of connection URLs (one per line, `#` comments allowed) and save each one.
 #[tauri::command]
 pub fn connections_import(store: State<'_, ConnectionStore>, path: String) -> Result<ImportResult, String> {
-    let text = std::fs::read_to_string(&path).map_err(|e| format!("Could not read {path}: {e}"))?;
-    let mut imported = 0;
-    let mut errors = Vec::new();
-    for (n, line) in text.lines().enumerate() {
-        let line = line.trim().trim_start_matches('\u{feff}');
-        if line.is_empty() || line.starts_with('#') {
-            continue;
-        }
-        match url::parse(line) {
-            Ok((conn, secrets)) => {
-                let saved = store.upsert(conn)?;
-                secrets::apply(&saved.id, &secrets)?;
-                imported += 1;
-            }
-            Err(e) => errors.push(format!("Line {}: {e}", n + 1)),
-        }
-    }
+    let (imported, errors) = ops::import_file(&store, std::path::Path::new(&path))?;
     Ok(ImportResult { imported, errors })
 }
 
@@ -173,10 +80,10 @@ pub async fn sqlite_create_file(path: String) -> Result<(), String> {
 
 /// Connect with the given (possibly unsaved) settings, report the server, and disconnect.
 #[tauri::command]
-pub async fn connection_test(app: AppHandle, connection: Connection, secrets: Secrets) -> Result<ServerInfo, String> {
+pub async fn connection_test(connection: Connection, secrets: Secrets) -> Result<ServerInfo, String> {
     validate(&connection)?;
     let merged = secrets::merge_with_stored(&connection.id, &secrets)?;
-    let (backend, info, tunnel) = db::open(&connection, &merged, known_hosts(&app)?).await?;
+    let (backend, info, tunnel) = db::open(&connection, &merged, known_hosts()?).await?;
     if let db::Backend::Mysql(b) = backend {
         b.close().await;
     }
@@ -212,12 +119,12 @@ pub async fn session_open(
     if needs_password {
         return Err("PASSWORD_REQUIRED".into());
     }
-    let (backend, info, tunnel) = db::open(&conn, &secrets, known_hosts(&app)?).await?;
+    let (backend, info, tunnel) = db::open(&conn, &secrets, known_hosts()?).await?;
     let session_id = sessions
         .insert(window.label().to_string(), conn.clone(), info.clone(), backend, tunnel)
         .await;
     // Extra windows are reopened with this connection at the next start.
-    app.state::<crate::state::WindowList>().set(&app, window.label(), Some(&conn.id));
+    app.state::<crate::state::WindowList>().set(window.label(), Some(&conn.id));
     Ok(SessionInfo { session_id, connection: conn, server: info })
 }
 
@@ -229,7 +136,7 @@ pub async fn session_close(
     session_id: String,
 ) -> Result<(), String> {
     sessions.close(&session_id).await;
-    app.state::<crate::state::WindowList>().set(&app, window.label(), None);
+    app.state::<crate::state::WindowList>().set(window.label(), None);
     Ok(())
 }
 

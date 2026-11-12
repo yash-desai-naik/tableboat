@@ -1,10 +1,14 @@
 //! Saved connections in `%APPDATA%\Tableboat\connections.json` (no passwords).
+//!
+//! The app and `tb` (or Claude through either) may both change the file: each access first
+//! re-reads it when it changed on disk, so neither overwrites the other's changes.
 
 use super::model::Connection;
 use crate::paths::{now_secs, write_atomic};
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
-use std::sync::Mutex;
+use std::path::{Path, PathBuf};
+use std::sync::{Mutex, MutexGuard};
+use std::time::SystemTime;
 
 #[derive(Serialize, Deserialize, Default)]
 struct FileFormat {
@@ -14,7 +18,17 @@ struct FileFormat {
 
 pub struct ConnectionStore {
     path: PathBuf,
-    items: Mutex<Vec<Connection>>,
+    items: Mutex<Items>,
+}
+
+struct Items {
+    list: Vec<Connection>,
+    /// The file's modification time when it was last read or written.
+    modified: Option<SystemTime>,
+}
+
+fn modified(path: &Path) -> Option<SystemTime> {
+    std::fs::metadata(path).and_then(|m| m.modified()).ok()
 }
 
 impl ConnectionStore {
@@ -34,33 +48,50 @@ impl ConnectionStore {
             },
             Err(_) => Vec::new(),
         };
-        Ok(Self { path, items: Mutex::new(items) })
+        let modified = modified(&path);
+        Ok(Self { path, items: Mutex::new(Items { list: items, modified }) })
     }
 
-    fn save(&self, items: &[Connection]) -> Result<(), String> {
-        let file = FileFormat { version: 1, connections: items.to_vec() };
+    /// The list, re-read first if another program changed the file (an unreadable file is
+    /// left alone and the list in memory kept).
+    fn items(&self) -> MutexGuard<'_, Items> {
+        let mut items = self.items.lock().unwrap_or_else(|e| e.into_inner());
+        let now = modified(&self.path);
+        if now.is_some() && now != items.modified {
+            if let Some(f) = std::fs::read_to_string(&self.path).ok().and_then(|t| serde_json::from_str::<FileFormat>(&t).ok()) {
+                items.list = f.connections;
+                items.modified = now;
+            }
+        }
+        items
+    }
+
+    fn save(&self, items: &mut Items) -> Result<(), String> {
+        let file = FileFormat { version: 1, connections: items.list.clone() };
         let text = serde_json::to_string_pretty(&file).map_err(|e| e.to_string())?;
-        write_atomic(&self.path, &text).map_err(|e| format!("Could not save connections: {e}"))
+        write_atomic(&self.path, &text).map_err(|e| format!("Could not save connections: {e}"))?;
+        items.modified = modified(&self.path);
+        Ok(())
     }
 
     pub fn list(&self) -> Vec<Connection> {
-        self.items.lock().expect("connections lock").clone()
+        self.items().list.clone()
     }
 
     pub fn get(&self, id: &str) -> Option<Connection> {
-        self.items.lock().expect("connections lock").iter().find(|c| c.id == id).cloned()
+        self.items().list.iter().find(|c| c.id == id).cloned()
     }
 
     /// Insert or replace by id; assigns an id and timestamps as needed.
     pub fn upsert(&self, mut conn: Connection) -> Result<Connection, String> {
-        let mut items = self.items.lock().map_err(|e| e.to_string())?;
+        let mut items = self.items();
         let now = now_secs();
         if conn.id.is_empty() {
             conn.id = uuid::Uuid::new_v4().to_string();
             conn.created_at = now;
         }
         conn.updated_at = now;
-        match items.iter_mut().find(|c| c.id == conn.id) {
+        match items.list.iter_mut().find(|c| c.id == conn.id) {
             Some(existing) => {
                 conn.created_at = existing.created_at;
                 *existing = conn.clone();
@@ -69,16 +100,16 @@ impl ConnectionStore {
                 if conn.created_at == 0 {
                     conn.created_at = now;
                 }
-                items.push(conn.clone());
+                items.list.push(conn.clone());
             }
         }
-        self.save(&items)?;
+        self.save(&mut items)?;
         Ok(conn)
     }
 
     pub fn delete(&self, id: &str) -> Result<(), String> {
-        let mut items = self.items.lock().map_err(|e| e.to_string())?;
-        items.retain(|c| c.id != id);
-        self.save(&items)
+        let mut items = self.items();
+        items.list.retain(|c| c.id != id);
+        self.save(&mut items)
     }
 }
