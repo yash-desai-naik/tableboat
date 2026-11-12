@@ -43,44 +43,51 @@ export function DocumentList({ info, rowCount, version, onStatus, edit }: Props)
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
   const [editor, setEditor] = useState<{ mode: "edit" | "insert"; index?: number; id?: Json; text: string } | null>(null);
   const sentinel = useRef<HTMLDivElement>(null);
-  const loadingRef = useRef(false);
+  // One loader for the first page and every later one: one request at a time, and a page is
+  // only added if it starts where the list ends and the view hasn't changed meanwhile (the
+  // first page and "scrolled to the end" used to both load page 1, showing documents twice).
+  const loaded = useRef<{ view: string; count: number; busy: boolean }>({ view: "", count: 0, busy: false });
+  const viewKey = `${info.id}:${version}`;
+  const latest = useRef({ viewKey, rowCount, onStatus });
+  latest.current = { viewKey, rowCount, onStatus };
+
+  const load = useCallback(async () => {
+    const state = loaded.current;
+    const { viewKey: key, rowCount: total } = latest.current;
+    if (state.busy || state.view !== key || state.count >= total) return;
+    state.busy = true;
+    setLoading(true);
+    const start = state.count;
+    try {
+      const next = (await queryApi.documents(info.id, start, PAGE)) as Json[];
+      if (loaded.current.view === key && loaded.current.count === start) {
+        loaded.current.count = start + next.length;
+        setDocs((d) => (start === 0 ? next : [...d, ...next]));
+      }
+    } catch (err) {
+      latest.current.onStatus(errorText(err));
+    } finally {
+      state.busy = false;
+      setLoading(false);
+    }
+  }, [info.id]);
 
   // A new view (search, sort, reload): start again from the top.
   useEffect(() => {
-    let cancelled = false;
+    loaded.current = { view: viewKey, count: 0, busy: false };
     setOpen(new Set());
-    void queryApi
-      .documents(info.id, 0, PAGE)
-      .then((d) => !cancelled && setDocs(d as Json[]))
-      .catch((err) => onStatus(errorText(err)));
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [info.id, version]);
+    setDocs([]);
+    void load();
+  }, [viewKey, load]);
 
-  const more = useCallback(async () => {
-    if (loadingRef.current || docs.length >= rowCount) return;
-    loadingRef.current = true;
-    setLoading(true);
-    try {
-      const next = (await queryApi.documents(info.id, docs.length, PAGE)) as Json[];
-      setDocs((d) => [...d, ...next]);
-    } catch (err) {
-      onStatus(errorText(err));
-    } finally {
-      loadingRef.current = false;
-      setLoading(false);
-    }
-  }, [docs.length, rowCount, info.id, onStatus]);
-
+  // Load the next page when the end of the list scrolls into view.
   useEffect(() => {
     const el = sentinel.current;
     if (!el) return;
-    const io = new IntersectionObserver((e) => e[0]?.isIntersecting && void more(), { rootMargin: "400px" });
+    const io = new IntersectionObserver((e) => e[0]?.isIntersecting && void load(), { rootMargin: "400px" });
     io.observe(el);
     return () => io.disconnect();
-  }, [more]);
+  }, [load, docs.length]);
 
   const toggle = (key: string) =>
     setOpen((s) => {
