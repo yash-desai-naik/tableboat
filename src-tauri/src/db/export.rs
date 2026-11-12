@@ -106,6 +106,8 @@ pub struct DumpOptions {
 
 #[derive(Debug, Default)]
 pub struct DumpStats {
+    /// MongoDB: these are collections.
+    pub collections: bool,
     pub tables: usize,
     pub views: usize,
     pub routines: usize,
@@ -116,14 +118,16 @@ pub struct DumpStats {
 
 impl DumpStats {
     pub fn describe(&self) -> String {
-        let mut parts = vec![format!("{} table{}", self.tables, if self.tables == 1 { "" } else { "s" })];
+        let what = if self.collections { "collection" } else { "table" };
+        let mut parts = vec![format!("{} {what}{}", self.tables, if self.tables == 1 { "" } else { "s" })];
         if self.views > 0 {
             parts.push(format!("{} view{}", self.views, if self.views == 1 { "" } else { "s" }));
         }
         if self.routines > 0 {
             parts.push(format!("{} routine/trigger{}", self.routines, if self.routines == 1 { "" } else { "s" }));
         }
-        parts.push(format!("{} row{}", self.rows, if self.rows == 1 { "" } else { "s" }));
+        let unit = if self.collections { "document" } else { "row" };
+        parts.push(format!("{} {unit}{}", self.rows, if self.rows == 1 { "" } else { "s" }));
         parts.join(", ")
     }
 }
@@ -274,7 +278,12 @@ fn safe_file_name(name: &str) -> String {
     if s.trim_matches('.').is_empty() { "_".into() } else { s }
 }
 
-async fn dump_mongo(session: &SessionHandle, runs: &Runs, database: &str, folder: &Path, opts: &DumpOptions) -> Result<DumpStats, String> {
+/// One file per collection, one document per line in canonical Extended JSON (`mongoexport
+/// --jsonFormat=canonical`; `mongoimport` reads it): every type and all nesting kept exactly.
+/// Read straight from a cursor, so memory stays small.
+async fn dump_mongo(session: &SessionHandle, _runs: &Runs, database: &str, folder: &Path, opts: &DumpOptions) -> Result<DumpStats, String> {
+    use futures_util::TryStreamExt;
+    let Backend::Mongo(b) = &session.backend else { return Err("Not a MongoDB connection.".into()) };
     let objects = meta::objects(session, database, true).await?;
     let collections: Vec<_> = objects.iter().filter(|o| o.kind == ObjectKind::Table && wanted(opts, &o.name)).collect();
     if let Some(list) = &opts.tables {
@@ -286,39 +295,20 @@ async fn dump_mongo(session: &SessionHandle, runs: &Runs, database: &str, folder
         return Err(format!("{} is a file; MongoDB databases are exported to a folder (one JSON file per collection).", folder.display()));
     }
     std::fs::create_dir_all(folder).map_err(io(folder))?;
-    let mut stats = DumpStats { path: folder.to_path_buf(), ..Default::default() };
+    let db = b.client.database(database);
+    let mut stats = DumpStats { path: folder.to_path_buf(), collections: true, ..Default::default() };
     for c in collections {
         let path = folder.join(format!("{}.json", safe_file_name(&c.name)));
         let file = std::fs::File::create(&path).map_err(io(&path))?;
         let mut out = std::io::BufWriter::new(file);
-        out.write_all(b"[").map_err(io(&path))?;
-        let mut offset = 0usize;
-        let mut first = true;
-        while opts.data {
-            let sql = format!(
-                "db.getCollection({}).find({{}}).skip({offset}).limit({CHUNK})",
-                serde_json::to_string(&c.name).unwrap_or_default()
-            );
-            let rs = read(session, runs, Some(database), sql, CHUNK).await.map_err(|e| format!("Reading {}: {e}", c.name))?;
-            let sel = rs.select(None, None);
-            let n = sel.rows.len();
-            if n > 0 {
-                let text = results::to_text(&rs, &sel, Format::Json, results::Dialect::Mysql, None)?;
-                // Each chunk is "[\n  {…},\n  {…}\n]": join the insides.
-                let inner = text.trim().trim_start_matches('[').trim_end_matches(']').trim_end();
-                if !first {
-                    out.write_all(b",").map_err(io(&path))?;
-                }
-                out.write_all(inner.as_bytes()).map_err(io(&path))?;
-                first = false;
-            }
-            stats.rows += n as u64;
-            offset += n;
-            if n < CHUNK {
-                break;
+        if opts.data {
+            let coll = db.collection::<mongodb::bson::Document>(&c.name);
+            let mut cursor = coll.find(mongodb::bson::doc! {}).await.map_err(|e| format!("Reading {}: {e}", c.name))?;
+            while let Some(d) = cursor.try_next().await.map_err(|e| format!("Reading {}: {e}", c.name))? {
+                writeln!(out, "{}", super::mongo_doc::canonical_json(&d)).map_err(io(&path))?;
+                stats.rows += 1;
             }
         }
-        out.write_all(b"\n]\n").map_err(io(&path))?;
         out.flush().map_err(io(&path))?;
         stats.tables += 1;
     }

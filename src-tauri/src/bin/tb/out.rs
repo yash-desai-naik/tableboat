@@ -11,6 +11,11 @@ pub fn pick(fmt: Option<Fmt>) -> Fmt {
     fmt.unwrap_or(if term::stdout_is_terminal() { Fmt::Table } else { Fmt::Tsv })
 }
 
+/// For MongoDB documents: mongosh syntax in a terminal, JSON (relaxed Extended JSON) in a pipe.
+pub fn pick_documents() -> Fmt {
+    if term::stdout_is_terminal() { Fmt::Docs } else { Fmt::Json }
+}
+
 /// A simple list (connections, tables…) as a result set, so every format works for it.
 pub fn list(headers: &[&str], rows: Vec<Vec<Option<String>>>, numeric: &[usize]) -> ResultSet {
     let columns = headers
@@ -32,6 +37,12 @@ pub fn list(headers: &[&str], rows: Vec<Vec<Option<String>>>, numeric: &[usize])
 pub fn print(rs: &ResultSet, fmt: Fmt, dialect: results::Dialect, table: Option<&str>, wide: bool) -> Result<(), String> {
     let text = match fmt {
         Fmt::Table => render_table(rs, wide),
+        Fmt::Docs if rs.has_documents() => {
+            let n = rs.visible_len();
+            (0..n).filter_map(|i| rs.document(i)).map(|d| tableboat_core::db::mongo_doc::shell_doc(&d, true) + "
+").collect()
+        }
+        Fmt::Docs => render_table(rs, wide),
         Fmt::Xlsx => return Err("Excel output only works with `tb export … -o file.xlsx`.".into()),
         other => {
             let format = match other {

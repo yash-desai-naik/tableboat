@@ -9,7 +9,8 @@ A connection is named by its name, any unique part of it, or its id: `tb tables 
 `tb tables mongo`.
 
 Output is a table in a terminal and tab-separated when piped (`tb q … > file.tsv`); choose with
-`-f table|csv|tsv|json|md|sql`. Row counts and timings go to stderr, so piped output stays clean.
+`-f table|docs|csv|tsv|json|md|sql`. MongoDB results print as documents (mongosh syntax) in a
+terminal and as JSON (Extended JSON, types kept) when piped; `-f table` gives the grid. Row counts and timings go to stderr, so piped output stays clean.
 Exit code 1 on any error.
 
 ## Connections
@@ -51,7 +52,7 @@ Exit code 1 on any error.
 |---|---|
 | `tb export <c> <table> -o file.(csv\|tsv\|json\|xlsx\|md\|sql) [-d db] [--limit N]` | a table or collection to a file |
 | `tb export <c> --query "<sql>" -o file.xlsx` | a query's result to a file |
-| `tb dump <c> -o file.sql [-d db] [-t table,…] [--no-data]` | a whole database as a SQL script (DROP, CREATE, INSERTs, views; MySQL also routines and triggers, SQLite indexes). Restore with `tb query <c> -i file.sql`. MongoDB: `-o` is a folder, one JSON file per collection |
+| `tb dump <c> -o file.sql [-d db] [-t table,…] [--no-data]` | a whole database as a SQL script (DROP, CREATE, INSERTs, views; MySQL also routines and triggers, SQLite indexes). Restore with `tb query <c> -i file.sql`. MongoDB: `-o` is a folder, one file per collection in canonical Extended JSON (`mongoimport` restores it exactly) |
 | `tb open [<c>]` | open the app (on that connection; a running app opens it in a new window) |
 | `tb settings` / `get <key>` / `set <key> <value>` / `path` | the app's settings (an open app picks up changes when its window is next focused) |
 | `tb version` | version, build, folders, Claude Code location |

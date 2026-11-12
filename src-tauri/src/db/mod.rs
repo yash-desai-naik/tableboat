@@ -2,6 +2,7 @@ pub mod edit;
 pub mod export;
 pub mod meta;
 pub mod mongo;
+pub mod mongo_doc;
 pub mod mongo_shell;
 pub mod mysql;
 pub mod query;

@@ -412,6 +412,90 @@ pub async fn result_export(
     .map_err(|e| e.to_string())?
 }
 
+/// MongoDB results: documents `start..start+count` of the current view (canonical Extended JSON).
+#[tauri::command]
+pub fn result_documents(
+    results: State<'_, db::results::ResultStore>,
+    result_id: String,
+    start: usize,
+    count: usize,
+) -> Result<Vec<serde_json::Value>, String> {
+    let rs = results.get(&result_id)?;
+    let rs = rs.read().map_err(|e| e.to_string())?;
+    Ok(rs.documents(start, count.min(1000)))
+}
+
+/// One document as text: "shell" (mongosh syntax, also what the editor edits), "json"
+/// (relaxed Extended JSON) or "new" (mongosh syntax without the _id, for a duplicate).
+#[tauri::command]
+pub fn result_document_text(
+    results: State<'_, db::results::ResultStore>,
+    result_id: String,
+    index: usize,
+    format: String,
+) -> Result<String, String> {
+    let rs = results.get(&result_id)?;
+    let rs = rs.read().map_err(|e| e.to_string())?;
+    let mut d = rs.document(index).ok_or("That document is no longer in the results.")?;
+    Ok(match format.as_str() {
+        "json" => db::mongo_doc::relaxed_json(&d, true),
+        // A copy to insert as a new document: without its _id.
+        "new" => {
+            d.remove("_id");
+            db::mongo_doc::shell_doc(&d, true)
+        }
+        _ => db::mongo_doc::shell_doc(&d, true),
+    })
+}
+
+fn mongo(session: &db::SessionHandle) -> Result<&db::mongo::MongoBackend, String> {
+    match &session.backend {
+        db::Backend::Mongo(b) => Ok(b),
+        _ => Err("Documents can only be edited on MongoDB connections.".into()),
+    }
+}
+
+/// The document view's editor: replace one document (`id` = its `_id` as canonical Extended JSON).
+#[tauri::command]
+pub async fn document_replace(
+    sessions: State<'_, Sessions>,
+    session_id: String,
+    database: String,
+    collection: String,
+    id: serde_json::Value,
+    text: String,
+) -> Result<(), String> {
+    let session = sessions.get(&session_id).await?;
+    let id = db::mongo::id_from_json(&id)?;
+    db::mongo::replace_document(mongo(&session)?, &database, &collection, &id, &text).await
+}
+
+#[tauri::command]
+pub async fn document_delete(
+    sessions: State<'_, Sessions>,
+    session_id: String,
+    database: String,
+    collection: String,
+    id: serde_json::Value,
+) -> Result<(), String> {
+    let session = sessions.get(&session_id).await?;
+    let id = db::mongo::id_from_json(&id)?;
+    db::mongo::delete_document(mongo(&session)?, &database, &collection, &id).await
+}
+
+/// Insert a document typed as text; returns the new `_id`.
+#[tauri::command]
+pub async fn document_insert(
+    sessions: State<'_, Sessions>,
+    session_id: String,
+    database: String,
+    collection: String,
+    text: String,
+) -> Result<String, String> {
+    let session = sessions.get(&session_id).await?;
+    db::mongo::insert_document(mongo(&session)?, &database, &collection, &text).await
+}
+
 #[tauri::command]
 pub fn result_free(results: State<'_, db::results::ResultStore>, result_ids: Vec<String>) {
     results.free(&result_ids);

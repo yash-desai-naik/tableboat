@@ -290,6 +290,14 @@ impl<'a> P<'a> {
                 Ok(Bson::Timestamp(bson::Timestamp { time: t, increment: i }))
             }
             "RegExp" => Ok(regex(str_arg(0)?, args.get(1).and_then(Bson::as_str).unwrap_or(""))),
+            "BinData" => {
+                use base64::Engine as _;
+                let sub = args.first().and_then(as_u32).ok_or("BinData() needs a subtype number")?;
+                let bytes = base64::engine::general_purpose::STANDARD
+                    .decode(str_arg(1)?.trim())
+                    .map_err(|_| "BinData() needs base64 data".to_string())?;
+                Ok(Bson::Binary(bson::Binary { subtype: (sub as u8).into(), bytes }))
+            }
             other => Err(format!("{other}() isn't supported in Tableboat's MongoDB syntax")),
         }
     }

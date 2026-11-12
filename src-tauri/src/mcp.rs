@@ -497,6 +497,22 @@ fn describe(outcomes: Vec<db::query::StatementOutcome>) -> String {
             continue;
         }
         match &o.result {
+            // MongoDB: the documents in mongosh syntax, one per line (types and nesting kept).
+            Some(rs) if rs.has_documents() => {
+                let n = rs.visible_len();
+                let docs: String = (0..n).filter_map(|i| rs.document(i)).map(|d| db::mongo_doc::shell_doc(&d, false) + "
+").collect();
+                out.push_str(&format!(
+                    "{n} document{}{} in {:.1} ms
+
+{}
+",
+                    if n == 1 { "" } else { "s" },
+                    if rs.truncated { " (more exist; raise max_rows or add .limit())" } else { "" },
+                    o.elapsed_ms,
+                    clip(&docs, MAX_OUTPUT)
+                ));
+            }
             Some(rs) => {
                 let sel = rs.select(None, None);
                 let n = sel.rows.len();

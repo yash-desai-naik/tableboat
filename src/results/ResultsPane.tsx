@@ -14,6 +14,8 @@ import {
 import { DownloadIcon, RefreshIcon, SearchIcon } from "../shell/Icons";
 import { Menu, type MenuItem } from "../shell/Menu";
 import { ResultGrid, type GridEditing, type SortState } from "./ResultGrid";
+import { DocumentList, type DocumentEditing } from "./DocumentList";
+import { updateSettings, useSettings } from "../lib/settings";
 
 interface Props {
   tabId: string;
@@ -34,6 +36,8 @@ interface Props {
   footer?: ReactNode;
   emptyText?: string;
   edit?: GridEditing;
+  /** MongoDB collection views: edit, add and delete whole documents. */
+  documentEdit?: DocumentEditing;
 }
 
 const EXPORTS: { format: CopyFormat; label: string; ext: string }[] = [
@@ -53,8 +57,9 @@ interface ViewState {
   version: number;
 }
 
-export function ResultsPane({ tabId, dialect, table, serverSort, onCancel, leading, tools, footer, emptyText, edit }: Props) {
+export function ResultsPane({ tabId, dialect, table, serverSort, onCancel, leading, tools, footer, emptyText, edit, documentEdit }: Props) {
   const run = useRunState(tabId);
+  const { mongoView } = useSettings();
   const [views, setViews] = useState<Record<string, ViewState>>({});
   const [status, setStatus] = useState<string | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
@@ -66,6 +71,8 @@ export function ResultsPane({ tabId, dialect, table, serverSort, onCancel, leadi
   const view: ViewState | null = info
     ? (views[info.id] ?? { search: "", sort: null, rowCount: info.rowCount, version: 0 })
     : null;
+  // MongoDB results show as documents unless the table was chosen.
+  const asDocuments = !!info?.documents && mongoView === "documents";
 
   // Elapsed time while running; the timer only exists during a query.
   useEffect(() => {
@@ -137,6 +144,7 @@ export function ResultsPane({ tabId, dialect, table, serverSort, onCancel, leadi
   );
   const errors = run.outcomes.filter((o) => o.error && !o.cancelled).length;
 
+  const unit = info?.documents ? "document" : "row";
   const summary = (() => {
     if (run.running) return `Running… ${formatElapsed(elapsed)}`;
     if (!outcome) {
@@ -148,8 +156,8 @@ export function ResultsPane({ tabId, dialect, table, serverSort, onCancel, leadi
     const shown = view?.rowCount ?? info.rowCount;
     const rows =
       shown !== info.rowCount
-        ? `${shown.toLocaleString()} of ${info.rowCount.toLocaleString()} rows`
-        : `${info.rowCount.toLocaleString()} row${info.rowCount === 1 ? "" : "s"}`;
+        ? `${shown.toLocaleString()} of ${info.rowCount.toLocaleString()} ${unit}s`
+        : `${info.rowCount.toLocaleString()} ${unit}${info.rowCount === 1 ? "" : "s"}`;
     return `${rows} · ${formatElapsed(outcome.elapsedMs)}`;
   })();
 
@@ -170,6 +178,23 @@ export function ResultsPane({ tabId, dialect, table, serverSort, onCancel, leadi
         spellCheck={false}
       />
     </label>
+  );
+
+  const viewSwitch = info?.documents && (
+    <div className="segmented small-seg" role="tablist" aria-label="Show results as">
+      {(["documents", "table"] as const).map((v) => (
+        <button
+          key={v}
+          role="tab"
+          aria-selected={mongoView === v}
+          className={mongoView === v ? "seg active" : "seg"}
+          onClick={() => updateSettings({ mongoView: v })}
+          title={v === "documents" ? "Documents as they are stored (nesting and types)" : "Fields as columns"}
+        >
+          {v === "documents" ? "Documents" : "Table"}
+        </button>
+      ))}
+    </div>
   );
 
   const exportButton = info && (
@@ -201,7 +226,17 @@ export function ResultsPane({ tabId, dialect, table, serverSort, onCancel, leadi
     <div className="results-body">
       {run.running && !run.outcomes.length && <div className="results-note">Running…</div>}
       {!run.running && !run.outcomes.length && <div className="results-note">{emptyText ?? "Run a query to see results here."}</div>}
-      {info && view && (
+      {info && view && asDocuments && (
+        <DocumentList
+          key={info.id}
+          info={info}
+          rowCount={view.rowCount}
+          version={view.version}
+          onStatus={flash}
+          edit={documentEdit}
+        />
+      )}
+      {info && view && !asDocuments && (
         <ResultGrid
           key={info.id}
           info={info}
@@ -228,6 +263,7 @@ export function ResultsPane({ tabId, dialect, table, serverSort, onCancel, leadi
         <div className="results-bar toolbar">
           {leading}
           <span className="spacer" />
+          {viewSwitch}
           {searchBox}
           {tools}
           {exportButton}
@@ -279,6 +315,7 @@ export function ResultsPane({ tabId, dialect, table, serverSort, onCancel, leadi
             Cancel
           </button>
         )}
+        {viewSwitch}
         {searchBox}
         {!serverSort && run.lastRun && !run.running && (
           <button

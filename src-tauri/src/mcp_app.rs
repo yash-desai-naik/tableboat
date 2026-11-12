@@ -689,7 +689,7 @@ fn dump_database(host: &dyn Host, args: &Value) -> Result<String, String> {
         if !data {
             "Structure only."
         } else if mongo {
-            "One JSON file per collection, in this folder."
+            "One JSON file per collection (canonical Extended JSON, for mongoimport), in this folder."
         } else {
             "Structure and data, as a SQL script."
         },

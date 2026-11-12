@@ -15,6 +15,8 @@ export interface ResultInfo {
   columns: ColumnMeta[];
   rowCount: number;
   truncated: boolean;
+  /** MongoDB: the rows are documents (the document view is available). */
+  documents: boolean;
 }
 
 export interface StatementOutcome {
@@ -59,9 +61,25 @@ export const queryApi = {
   }) => invoke<string>("result_copy", args),
   exportFile: (args: { resultId: string; path: string; format: CopyFormat; dialect: Dialect; table: string | null }) =>
     invoke<number>("result_export", args),
+  /** Documents of the current view as canonical Extended JSON. */
+  documents: (resultId: string, start: number, count: number) =>
+    invoke<unknown[]>("result_documents", { resultId, start, count }),
+  /** One document as text: "shell" (mongosh syntax), "json" (relaxed Extended JSON). */
+  documentText: (resultId: string, index: number, format: "shell" | "json" | "new") =>
+    invoke<string>("result_document_text", { resultId, index, format }),
   free: (resultIds: string[]) => (resultIds.length ? invoke<void>("result_free", { resultIds }) : Promise.resolve()),
   columns: (sessionId: string, database: string) =>
     invoke<Record<string, { name: string; typeName: string }[]>>("meta_columns", { sessionId, database }),
+};
+
+/** Saving whole documents (MongoDB collection views). `id` is the `_id` as canonical Extended JSON. */
+export const documentApi = {
+  replace: (sessionId: string, database: string, collection: string, id: unknown, text: string) =>
+    invoke<void>("document_replace", { sessionId, database, collection, id, text }),
+  remove: (sessionId: string, database: string, collection: string, id: unknown) =>
+    invoke<void>("document_delete", { sessionId, database, collection, id }),
+  insert: (sessionId: string, database: string, collection: string, text: string) =>
+    invoke<string>("document_insert", { sessionId, database, collection, text }),
 };
 
 export function dialectOf(engine: string): Dialect {

@@ -44,6 +44,8 @@ pub struct Settings {
     pub restore_tabs: bool,
     /// At start-up, reconnect the main window to the last connection used.
     pub reopen_last_connection: bool,
+    /// How MongoDB results show: "documents" or "table".
+    pub mongo_view: String,
 }
 
 impl Default for Settings {
@@ -68,6 +70,7 @@ impl Default for Settings {
             claude_model: String::new(),
             restore_tabs: true,
             reopen_last_connection: true,
+            mongo_view: "documents".into(),
         }
     }
 }
@@ -81,6 +84,9 @@ impl Settings {
         }
         if !matches!(self.density.as_str(), "compact" | "default" | "comfortable") {
             self.density = d.density;
+        }
+        if !matches!(self.mongo_view.as_str(), "documents" | "table") {
+            self.mongo_view = d.mongo_view;
         }
         if !self.ui_zoom.is_finite() {
             self.ui_zoom = d.ui_zoom;
@@ -130,7 +136,8 @@ stopOnError: stop a script at the first failing statement
 sortDescendingFirst: a header click sorts descending first
 claudeModel: \"\" (Claude Code's default) | \"sonnet\" | \"opus\" | \"haiku\" | a full model id
 restoreTabs: reopen a connection's tabs when connecting again
-reopenLastConnection: reconnect to the last connection at start-up";
+reopenLastConnection: reconnect to the last connection at start-up
+mongoView: \"documents\" | \"table\" (how MongoDB results show)";
 
 /// One changed setting: key, old value, new value.
 pub type Change = (String, Value, Value);

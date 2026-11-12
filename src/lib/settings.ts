@@ -26,6 +26,7 @@ export interface Settings {
   claudeModel: string;
   restoreTabs: boolean;
   reopenLastConnection: boolean;
+  mongoView: "documents" | "table";
 }
 
 let current: Settings | null = null;

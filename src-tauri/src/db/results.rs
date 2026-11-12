@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, RwLock};
+use mongodb::bson::{Bson, Document, RawDocumentBuf};
 
 /// One value as text (`None` = SQL NULL). Binary values are hex (`0x…`).
 pub type Cell = Option<Box<str>>;
@@ -27,6 +28,9 @@ pub struct Column {
 pub struct ResultSet {
     pub columns: Vec<Column>,
     rows: Vec<Box<[Cell]>>,
+    /// MongoDB: the documents themselves (row `i` is document `i` shown as columns). The
+    /// document view, JSON copies and exports use these, so nesting and types are kept.
+    docs: Option<Vec<RawDocumentBuf>>,
     pub truncated: bool,
     /// Row order after quick search and sort: indices into `rows`.
     view: Vec<u32>,
@@ -41,12 +45,41 @@ pub struct ResultInfo {
     pub columns: Vec<Column>,
     pub row_count: usize,
     pub truncated: bool,
+    /// The rows are MongoDB documents (the document view is available).
+    pub documents: bool,
 }
 
 impl ResultSet {
     pub fn new(columns: Vec<Column>, rows: Vec<Box<[Cell]>>, truncated: bool) -> Self {
         let view = (0..rows.len() as u32).collect();
-        Self { columns, rows, truncated, view, sort: None, filter: None }
+        Self { columns, rows, docs: None, truncated, view, sort: None, filter: None }
+    }
+
+    /// Keep the documents the rows were made from (one per row, same order).
+    pub fn with_documents(mut self, docs: Vec<RawDocumentBuf>) -> Self {
+        if docs.len() == self.rows.len() {
+            self.docs = Some(docs);
+        }
+        self
+    }
+
+    pub fn has_documents(&self) -> bool {
+        self.docs.is_some()
+    }
+
+    /// The document at a position in the current view (after quick search and sort).
+    pub fn document(&self, view_index: usize) -> Option<Document> {
+        let i = *self.view.get(view_index)? as usize;
+        Document::try_from(self.docs.as_ref()?.get(i)?.as_ref()).ok()
+    }
+
+    /// Documents `start..start+count` of the current view, as canonical Extended JSON (every
+    /// type spelled out, numbers as text so nothing is rounded in JavaScript).
+    pub fn documents(&self, start: usize, count: usize) -> Vec<serde_json::Value> {
+        (start..start + count)
+            .map_while(|i| self.document(i))
+            .map(|d| Bson::Document(d).into_canonical_extjson())
+            .collect()
     }
 
     pub fn visible_len(&self) -> usize {
@@ -101,11 +134,12 @@ impl ResultSet {
             .collect()
     }
 
-    fn view_rows(&self, ranges: &[[u32; 2]]) -> Vec<&[Cell]> {
+    /// Original row indices of view positions in `ranges`.
+    fn view_indices(&self, ranges: &[[u32; 2]]) -> Vec<u32> {
         let mut out = Vec::new();
         for [start, end] in ranges {
             for v in *start..(*end).min(self.view.len() as u32) {
-                out.push(&*self.rows[self.view[v as usize] as usize]);
+                out.push(self.view[v as usize]);
             }
         }
         out
@@ -177,7 +211,13 @@ pub struct ResultStore {
 impl ResultStore {
     pub fn insert(&self, window: &str, rs: ResultSet) -> ResultInfo {
         let id = uuid::Uuid::new_v4().to_string();
-        let info = ResultInfo { id: id.clone(), columns: rs.columns.clone(), row_count: rs.rows.len(), truncated: rs.truncated };
+        let info = ResultInfo {
+            id: id.clone(),
+            columns: rs.columns.clone(),
+            row_count: rs.rows.len(),
+            truncated: rs.truncated,
+            documents: rs.docs.is_some(),
+        };
         self.map.lock().unwrap().insert(id, (window.to_string(), Arc::new(RwLock::new(rs))));
         info
     }
@@ -229,19 +269,37 @@ pub enum Dialect {
 pub struct Selection<'a> {
     pub rows: Vec<&'a [Cell]>,
     pub cols: Vec<usize>,
+    /// The rows' original indices (for their documents).
+    pub idx: Vec<u32>,
 }
 
 impl ResultSet {
     pub fn select(&self, ranges: Option<&[[u32; 2]]>, cols: Option<&[u32]>) -> Selection<'_> {
-        let rows = match ranges {
-            Some(r) => self.view_rows(r),
-            None => self.all_view_rows(),
+        let idx = match ranges {
+            Some(r) => self.view_indices(r),
+            None => self.view.clone(),
         };
+        let rows = idx.iter().map(|&i| &*self.rows[i as usize]).collect();
         let cols = match cols {
             Some(c) => c.iter().map(|&c| c as usize).filter(|&c| c < self.columns.len()).collect(),
             None => (0..self.columns.len()).collect(),
         };
-        Selection { rows, cols }
+        Selection { rows, cols, idx }
+    }
+
+    /// The selected rows' documents as relaxed Extended JSON; when only some columns are
+    /// selected, only those top-level fields.
+    fn selected_documents(&self, sel: &Selection) -> Option<Vec<Document>> {
+        let docs = self.docs.as_ref()?;
+        let all = sel.cols.len() == self.columns.len();
+        let fields: Vec<&str> = sel.cols.iter().map(|&c| self.columns[c].name.as_str()).collect();
+        Some(
+            sel.idx
+                .iter()
+                .filter_map(|&i| Document::try_from(docs.get(i as usize)?.as_ref()).ok())
+                .map(|d| if all { d } else { d.into_iter().filter(|(k, _)| fields.contains(&k.as_str())).collect() })
+                .collect(),
+        )
     }
 }
 
@@ -273,6 +331,16 @@ pub fn to_text(rs: &ResultSet, sel: &Selection, format: Format, dialect: Dialect
                 text.truncate(text.len() - 2);
             }
             Ok(text)
+        }
+        // MongoDB documents: relaxed Extended JSON with their nesting and types (mongoimport
+        // --jsonArray reads it back).
+        Format::Json if rs.has_documents() => {
+            let docs = rs.selected_documents(sel).unwrap_or_default();
+            let body: Vec<String> = docs
+                .iter()
+                .map(|d| super::mongo_doc::relaxed_json(d, true).lines().map(|l| format!("  {l}")).collect::<Vec<_>>().join("\n"))
+                .collect();
+            Ok(if body.is_empty() { "[]".into() } else { format!("[\n{}\n]", body.join(",\n")) })
         }
         Format::Json => {
             let mut out = String::from("[\n");

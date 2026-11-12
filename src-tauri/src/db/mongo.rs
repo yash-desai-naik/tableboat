@@ -292,6 +292,7 @@ pub fn display(b: &Bson) -> Cell {
 }
 
 pub fn documents_to_result(docs: Vec<Document>, truncated: bool) -> ResultSet {
+    let raw: Vec<bson::RawDocumentBuf> = docs.iter().filter_map(|d| bson::RawDocumentBuf::from_document(d).ok()).collect();
     let mut order: Vec<String> = Vec::new();
     for d in &docs {
         for k in d.keys() {
@@ -333,7 +334,7 @@ pub fn documents_to_result(docs: Vec<Document>, truncated: bool) -> ResultSet {
             primary_key: name == "_id",
         })
         .collect();
-    ResultSet::new(columns, rows, truncated)
+    ResultSet::new(columns, rows, truncated).with_documents(raw)
 }
 
 fn one_row(fields: Vec<(&str, Bson)>) -> ResultSet {
@@ -553,6 +554,58 @@ async fn run_one(b: &MongoBackend, sql: &str, current_db: &mut Option<String>, m
         }
     }
     Ok(())
+}
+
+// ---------- the document view: whole documents ----------
+
+/// A document typed or edited as text (mongosh syntax or Extended JSON).
+pub fn parse_document(text: &str) -> Result<Document, String> {
+    match mongo_shell::parse_value(text.trim())? {
+        Bson::Document(d) => Ok(d),
+        _ => Err("A document must be an object { … }.".into()),
+    }
+}
+
+/// An `_id` sent back by the document view (canonical Extended JSON).
+pub fn id_from_json(id: &serde_json::Value) -> Result<Bson, String> {
+    Bson::try_from(id.clone()).map_err(|e| format!("Not a valid _id: {e}"))
+}
+
+/// Replace the document with this `_id` by `text`. The `_id` can't change.
+pub async fn replace_document(b: &MongoBackend, database: &str, collection: &str, id: &Bson, text: &str) -> Result<(), String> {
+    let mut d = parse_document(text)?;
+    match d.get("_id") {
+        None => {
+            d.insert("_id", id.clone());
+        }
+        Some(new) if new != id => {
+            return Err("The _id can't be changed. Use Duplicate to save a copy with a new _id.".into());
+        }
+        Some(_) => {}
+    }
+    let coll = b.client.database(database).collection::<Document>(collection);
+    let r = coll.replace_one(doc! { "_id": id.clone() }, d).await.map_err(err)?;
+    if r.matched_count == 0 {
+        return Err("That document no longer exists (deleted since it was loaded).".into());
+    }
+    Ok(())
+}
+
+pub async fn delete_document(b: &MongoBackend, database: &str, collection: &str, id: &Bson) -> Result<(), String> {
+    let coll = b.client.database(database).collection::<Document>(collection);
+    let r = coll.delete_one(doc! { "_id": id.clone() }).await.map_err(err)?;
+    if r.deleted_count == 0 {
+        return Err("That document no longer exists (deleted since it was loaded).".into());
+    }
+    Ok(())
+}
+
+/// Insert a new document; returns its `_id` in mongosh syntax.
+pub async fn insert_document(b: &MongoBackend, database: &str, collection: &str, text: &str) -> Result<String, String> {
+    let d = parse_document(text)?;
+    let coll = b.client.database(database).collection::<Document>(collection);
+    let r = coll.insert_one(d).await.map_err(err)?;
+    Ok(super::mongo_doc::shell(&r.inserted_id, false))
 }
 
 // ---------- saving grid edits ----------
@@ -787,6 +840,21 @@ mod tests {
         assert_eq!(rows[0][3], Some("[\"x\"]"));
         assert_eq!(rows[1][4], Some("{\"k\":true}"));
         assert_eq!(rows[1][3], None, "missing field is empty");
+
+        // The documents themselves stay with the rows, in the view's order.
+        let mut rs = rs;
+        assert!(rs.has_documents());
+        rs.set_sort(Some((1, true)));
+        assert_eq!(rs.document(0).unwrap().get_i32("_id").unwrap(), 2);
+        let json = super::super::results::to_text(&rs, &rs.select(None, None), super::super::results::Format::Json, super::super::results::Dialect::Mysql, None).unwrap();
+        assert!(json.contains("\"$oid\": \"507f1f77bcf86cd799439011\""), "{json}");
+        assert!(json.contains("\"extra\": {\n      \"k\": true"), "nesting kept: {json}");
+        // Only the selected columns' fields.
+        let some = super::super::results::to_text(&rs, &rs.select(Some(&[[1, 2]]), Some(&[1])), super::super::results::Format::Json, super::super::results::Dialect::Mysql, None).unwrap();
+        assert_eq!(some, "[\n  {\n    \"name\": \"a\"\n  }\n]");
+        let shown = rs.documents(0, 5);
+        assert_eq!(shown.len(), 2);
+        assert_eq!(shown[1]["n"], serde_json::json!({ "$numberInt": "1" }));
     }
 
     #[test]

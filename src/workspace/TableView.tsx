@@ -386,6 +386,11 @@ function TableData({ info, tab, switcher }: { info: SessionInfo; tab: ObjectTab;
           footer={pager}
           emptyText="Loading…"
           edit={ctx ? { tabId: tab.id, ctx, version: editVersion, dialect, engine } : undefined}
+          documentEdit={
+            isMongo && tab.kind === "table"
+              ? { sessionId: info.sessionId, database: tab.database, collection: tab.name, onChanged: () => void go(offset) }
+              : undefined
+          }
         />
       </div>
       {preview && (

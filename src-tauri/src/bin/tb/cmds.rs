@@ -517,10 +517,13 @@ pub async fn query(ctx: &Ctx, a: QueryArgs) -> Result<ExitCode, String> {
         }
         match &o.result {
             Some(rs) => {
+                // MongoDB documents print as documents unless a format was asked for.
+                let fmt = if a.format.is_none() && rs.has_documents() { out::pick_documents() } else { fmt };
                 out::print(rs, fmt, rdialect, table_of(rs), a.wide)?;
                 let n = rs.visible_len();
                 let more = if rs.truncated { format!(" (first {n} only: --max-rows N or --all for more)") } else { String::new() };
-                eprintln!("{}", term::dim(&format!("{n} row{} · {}{more}", if n == 1 { "" } else { "s" }, ms(o.elapsed_ms))));
+                let unit = if rs.has_documents() { "document" } else { "row" };
+                eprintln!("{}", term::dim(&format!("{n} {unit}{} · {}{more}", if n == 1 { "" } else { "s" }, ms(o.elapsed_ms))));
             }
             None => {
                 let n = o.affected_rows.unwrap_or(0);
@@ -563,7 +566,7 @@ fn export_format(path: &str, asked: Option<Fmt>) -> Result<results::Format, Stri
     Ok(match fmt {
         Fmt::Csv => results::Format::CsvHeader,
         Fmt::Tsv | Fmt::Table => results::Format::TsvHeader,
-        Fmt::Json => results::Format::Json,
+        Fmt::Json | Fmt::Docs => results::Format::Json,
         Fmt::Md => results::Format::Markdown,
         Fmt::Sql => results::Format::Insert,
         Fmt::Xlsx => results::Format::Xlsx,

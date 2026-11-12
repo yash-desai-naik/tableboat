@@ -312,6 +312,8 @@ pub enum SettingsCmd {
 #[derive(Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum Fmt {
     Table,
+    /// MongoDB documents in mongosh syntax (the default for MongoDB in a terminal)
+    Docs,
     Csv,
     Tsv,
     Json,
