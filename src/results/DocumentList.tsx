@@ -102,7 +102,18 @@ export function DocumentList({ info, rowCount, version, onStatus, edit }: Props)
   async function copy(index: number, format: "shell" | "json") {
     try {
       await navigator.clipboard.writeText(await queryApi.documentText(info.id, index, format));
-      onStatus(format === "json" ? "Copied as JSON" : "Copied in mongosh syntax");
+      onStatus(format === "json" ? `Copied this ${noun} as JSON` : "Copied in mongosh syntax");
+    } catch (err) {
+      onStatus(errorText(err));
+    }
+  }
+
+  /** Every row or document in the current view (after quick search), as one JSON array. */
+  async function copyAll() {
+    try {
+      const text = await queryApi.copy({ resultId: info.id, ranges: null, columns: null, format: "json", dialect: "mysql", table: null });
+      await navigator.clipboard.writeText(text);
+      onStatus(`Copied ${rowCount.toLocaleString()} ${noun}${rowCount === 1 ? "" : "s"} as JSON`);
     } catch (err) {
       onStatus(errorText(err));
     }
@@ -138,8 +149,10 @@ export function DocumentList({ info, rowCount, version, onStatus, edit }: Props)
   }
 
   function actions(index: number, x: number, y: number) {
-    const items: MenuItem[] = [{ label: "Copy as JSON", onSelect: () => void copy(index, "json") }];
-    if (info.documents) items.push({ label: "Copy in mongosh syntax", onSelect: () => void copy(index, "shell") });
+    const all = `${rowCount.toLocaleString()} ${noun}${rowCount === 1 ? "" : "s"}`;
+    const items: MenuItem[] = [{ label: `Copy this ${noun} as JSON`, onSelect: () => void copy(index, "json") }];
+    if (info.documents) items.push({ label: "Copy this in mongosh syntax", onSelect: () => void copy(index, "shell") });
+    items.push({ label: rowCount === 1 ? "Copy all as JSON" : `Copy all ${all} as JSON`, onSelect: () => void copyAll() });
     if (edit) {
       items.push(
         { label: "Edit…", onSelect: () => void startEdit(index, "edit") },
