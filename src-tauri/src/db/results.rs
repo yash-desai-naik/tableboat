@@ -82,6 +82,69 @@ impl ResultSet {
             .collect()
     }
 
+    /// Column names as JSON keys: a repeated name (a join's two `id`s) gets " (2)", " (3)"…
+    fn json_keys(&self) -> Vec<String> {
+        let mut keys: Vec<String> = Vec::with_capacity(self.columns.len());
+        for c in &self.columns {
+            let mut k = c.name.clone();
+            let mut n = 2;
+            while keys.contains(&k) {
+                k = format!("{} ({n})", c.name);
+                n += 1;
+            }
+            keys.push(k);
+        }
+        keys
+    }
+
+    /// The JSON view: rows (or documents) `start..start+count` of the current view as objects.
+    /// MongoDB: the documents (canonical Extended JSON). SQL: column → value, NULL as null,
+    /// JSON columns as nested values, numbers as `{"$number": "…"}` so JavaScript never
+    /// rounds them.
+    pub fn objects(&self, start: usize, count: usize) -> Vec<serde_json::Value> {
+        if self.docs.is_some() {
+            return self.documents(start, count);
+        }
+        let keys = self.json_keys();
+        self.view
+            .iter()
+            .skip(start)
+            .take(count)
+            .map(|&i| {
+                let row = &self.rows[i as usize];
+                let mut obj = serde_json::Map::new();
+                for (c, col) in self.columns.iter().enumerate() {
+                    let v = match cell(row, c) {
+                        None => serde_json::Value::Null,
+                        Some(s) if col.numeric && is_plain_number(s) => serde_json::json!({ "$number": s }),
+                        Some(s) if col.type_name == "json" => {
+                            serde_json::from_str(s).unwrap_or_else(|_| serde_json::Value::String(s.to_string()))
+                        }
+                        Some(s) => serde_json::Value::String(s.to_string()),
+                    };
+                    obj.insert(keys[c].clone(), v);
+                }
+                serde_json::Value::Object(obj)
+            })
+            .collect()
+    }
+
+    /// One row as an indented JSON object (numbers exactly as the server sent them).
+    pub fn row_json(&self, view_index: usize) -> Option<String> {
+        let row = &self.rows[*self.view.get(view_index)? as usize];
+        let keys = self.json_keys();
+        let fields: Vec<String> = self
+            .columns
+            .iter()
+            .enumerate()
+            .map(|(c, col)| format!("  {}: {}", serde_json::to_string(&keys[c]).unwrap_or_default(), json_value(col, cell(row, c))))
+            .collect();
+        Some(format!("{{
+{}
+}}", fields.join(",
+")))
+    }
+
     pub fn visible_len(&self) -> usize {
         self.view.len()
     }
@@ -535,6 +598,32 @@ mod tests {
         assert_eq!(ids, vec!["-3.50", "9", "10", "123456789012345678901"]);
         r.set_sort(Some((1, false)));
         assert_eq!(r.rows(0, 1)[0][1], None, "NULL sorts first");
+    }
+
+    #[test]
+    fn rows_as_json_objects() {
+        let mut r = ResultSet::new(
+            vec![col("id", true), col("name", false), col("id", true), Column { type_name: "json".into(), ..col("meta", false) }],
+            vec![
+                vec![Some("123456789012345678901".into()), Some("O'Brien".into()), Some("7".into()), Some("{\"a\":[1,2]}".into())].into_boxed_slice(),
+                vec![Some("2".into()), None, None, Some("not json".into())].into_boxed_slice(),
+            ],
+            false,
+        );
+        let objs = r.objects(0, 10);
+        assert_eq!(objs.len(), 2);
+        // Exact numbers, a repeated column name kept apart, JSON columns nested, NULL as null.
+        assert_eq!(objs[0]["id"], serde_json::json!({ "$number": "123456789012345678901" }));
+        assert_eq!(objs[0]["id (2)"], serde_json::json!({ "$number": "7" }));
+        assert_eq!(objs[0]["meta"], serde_json::json!({ "a": [1, 2] }));
+        assert_eq!(objs[1]["name"], serde_json::Value::Null);
+        assert_eq!(objs[1]["meta"], serde_json::json!("not json"));
+        assert_eq!(r.row_json(0).unwrap(), "{\n  \"id\": 123456789012345678901,\n  \"name\": \"O'Brien\",\n  \"id (2)\": 7,\n  \"meta\": {\"a\":[1,2]}\n}");
+        // The view's order and search apply.
+        r.set_filter(Some("2".into()));
+        assert_eq!(r.objects(0, 10).len(), 2);
+        r.set_sort(Some((0, false)));
+        assert_eq!(r.objects(0, 1)[0]["id"], serde_json::json!({ "$number": "2" }));
     }
 
     #[test]

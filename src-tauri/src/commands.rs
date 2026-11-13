@@ -412,7 +412,8 @@ pub async fn result_export(
     .map_err(|e| e.to_string())?
 }
 
-/// MongoDB results: documents `start..start+count` of the current view (canonical Extended JSON).
+/// The document / JSON view: documents (MongoDB, canonical Extended JSON) or rows as JSON
+/// objects (SQL), `start..start+count` of the current view.
 #[tauri::command]
 pub fn result_documents(
     results: State<'_, db::results::ResultStore>,
@@ -422,7 +423,7 @@ pub fn result_documents(
 ) -> Result<Vec<serde_json::Value>, String> {
     let rs = results.get(&result_id)?;
     let rs = rs.read().map_err(|e| e.to_string())?;
-    Ok(rs.documents(start, count.min(1000)))
+    Ok(rs.objects(start, count.min(1000)))
 }
 
 /// One document as text: "shell" (mongosh syntax, also what the editor edits), "json"
@@ -436,6 +437,9 @@ pub fn result_document_text(
 ) -> Result<String, String> {
     let rs = results.get(&result_id)?;
     let rs = rs.read().map_err(|e| e.to_string())?;
+    if !rs.has_documents() {
+        return rs.row_json(index).ok_or_else(|| "That row is no longer in the results.".to_string());
+    }
     let mut d = rs.document(index).ok_or("That document is no longer in the results.")?;
     Ok(match format.as_str() {
         "json" => db::mongo_doc::relaxed_json(&d, true),
