@@ -46,6 +46,8 @@ pub struct Settings {
     pub reopen_last_connection: bool,
     /// How MongoDB results show: "documents" or "table".
     pub mongo_view: String,
+    /// How SQL results show: "table" or "json".
+    pub sql_view: String,
 }
 
 impl Default for Settings {
@@ -71,6 +73,7 @@ impl Default for Settings {
             restore_tabs: true,
             reopen_last_connection: true,
             mongo_view: "documents".into(),
+            sql_view: "table".into(),
         }
     }
 }
@@ -87,6 +90,9 @@ impl Settings {
         }
         if !matches!(self.mongo_view.as_str(), "documents" | "table") {
             self.mongo_view = d.mongo_view;
+        }
+        if !matches!(self.sql_view.as_str(), "table" | "json") {
+            self.sql_view = d.sql_view;
         }
         if !self.ui_zoom.is_finite() {
             self.ui_zoom = d.ui_zoom;
@@ -137,7 +143,8 @@ sortDescendingFirst: a header click sorts descending first
 claudeModel: \"\" (Claude Code's default) | \"sonnet\" | \"opus\" | \"haiku\" | a full model id
 restoreTabs: reopen a connection's tabs when connecting again
 reopenLastConnection: reconnect to the last connection at start-up
-mongoView: \"documents\" | \"table\" (how MongoDB results show)";
+mongoView: \"documents\" | \"table\" (how MongoDB results show)
+sqlView: \"table\" | \"json\" (how SQL results show)";
 
 /// One changed setting: key, old value, new value.
 pub type Change = (String, Value, Value);

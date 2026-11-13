@@ -27,6 +27,7 @@ export interface Settings {
   restoreTabs: boolean;
   reopenLastConnection: boolean;
   mongoView: "documents" | "table";
+  sqlView: "table" | "json";
 }
 
 let current: Settings | null = null;

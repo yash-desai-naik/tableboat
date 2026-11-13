@@ -43,6 +43,8 @@ export function DocumentList({ info, rowCount, version, onStatus, edit }: Props)
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
   const [editor, setEditor] = useState<{ mode: "edit" | "insert"; index?: number; id?: Json; text: string } | null>(null);
   const sentinel = useRef<HTMLDivElement>(null);
+  // MongoDB documents, or SQL rows shown as JSON objects.
+  const noun = info.documents ? "document" : "row";
   // One loader for the first page and every later one: one request at a time, and a page is
   // only added if it starts where the list ends and the view hasn't changed meanwhile (the
   // first page and "scrolled to the end" used to both load page 1, showing documents twice).
@@ -136,10 +138,8 @@ export function DocumentList({ info, rowCount, version, onStatus, edit }: Props)
   }
 
   function actions(index: number, x: number, y: number) {
-    const items: MenuItem[] = [
-      { label: "Copy as JSON", onSelect: () => void copy(index, "json") },
-      { label: "Copy in mongosh syntax", onSelect: () => void copy(index, "shell") },
-    ];
+    const items: MenuItem[] = [{ label: "Copy as JSON", onSelect: () => void copy(index, "json") }];
+    if (info.documents) items.push({ label: "Copy in mongosh syntax", onSelect: () => void copy(index, "shell") });
     if (edit) {
       items.push(
         { label: "Edit…", onSelect: () => void startEdit(index, "edit") },
@@ -160,7 +160,7 @@ export function DocumentList({ info, rowCount, version, onStatus, edit }: Props)
           <span className="muted small">Double-click a document to edit it.</span>
         </div>
       )}
-      {docs.length === 0 && rowCount === 0 && <div className="results-note">No documents.</div>}
+      {docs.length === 0 && rowCount === 0 && <div className="results-note">No {noun}s.</div>}
       {docs.map((d, i) => (
         <div
           key={i}
@@ -175,7 +175,7 @@ export function DocumentList({ info, rowCount, version, onStatus, edit }: Props)
         >
           <div className="doc-tools">
             <span className="doc-n">{i + 1}</span>
-            <button className="icon-btn doc-more" title="Copy, edit…" onClick={(e) => actions(i, e.clientX - 180, e.clientY + 8)}>
+            <button className="icon-btn doc-more" title={edit ? "Copy, edit…" : "Copy"} onClick={(e) => actions(i, e.clientX - 180, e.clientY + 8)}>
               ⋯
             </button>
           </div>
@@ -183,7 +183,7 @@ export function DocumentList({ info, rowCount, version, onStatus, edit }: Props)
         </div>
       ))}
       <div ref={sentinel} className="docs-end">
-        {docs.length < rowCount ? (loading ? "Loading…" : "") : rowCount > 0 ? `${rowCount.toLocaleString()} document${rowCount === 1 ? "" : "s"}` : ""}
+        {docs.length < rowCount ? (loading ? "Loading…" : "") : rowCount > 0 ? `${rowCount.toLocaleString()} ${noun}${rowCount === 1 ? "" : "s"}` : ""}
       </div>
       {menu && <Menu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
       {editor && edit && (
@@ -297,6 +297,9 @@ function special(v: Json): { text: string; cls: string; title: string } | null {
       const d = new Date(ms);
       return { text: Number.isNaN(d.getTime()) ? `ISODate(${JSON.stringify(x)})` : `ISODate("${d.toISOString()}")`, cls: "t-date", title: "Date" };
     }
+    // SQL numbers, kept as text so JavaScript never rounds them.
+    case "$number":
+      return { text: String(x), cls: "t-num", title: "Number" };
     case "$numberInt":
       return { text: String(x), cls: "t-num", title: "Int32" };
     case "$numberLong":

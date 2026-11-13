@@ -59,7 +59,7 @@ interface ViewState {
 
 export function ResultsPane({ tabId, dialect, table, serverSort, onCancel, leading, tools, footer, emptyText, edit, documentEdit }: Props) {
   const run = useRunState(tabId);
-  const { mongoView } = useSettings();
+  const { mongoView, sqlView } = useSettings();
   const [views, setViews] = useState<Record<string, ViewState>>({});
   const [status, setStatus] = useState<string | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
@@ -71,8 +71,9 @@ export function ResultsPane({ tabId, dialect, table, serverSort, onCancel, leadi
   const view: ViewState | null = info
     ? (views[info.id] ?? { search: "", sort: null, rowCount: info.rowCount, version: 0 })
     : null;
-  // MongoDB results show as documents unless the table was chosen.
-  const asDocuments = !!info?.documents && mongoView === "documents";
+  // MongoDB results show as documents unless the table was chosen; SQL results as a table
+  // unless JSON was chosen. Both object views use the same list.
+  const asDocuments = !!info && (info.documents ? mongoView === "documents" : sqlView === "json");
 
   // Elapsed time while running; the timer only exists during a query.
   useEffect(() => {
@@ -180,18 +181,30 @@ export function ResultsPane({ tabId, dialect, table, serverSort, onCancel, leadi
     </label>
   );
 
-  const viewSwitch = info?.documents && (
+  // [label, is it the object view, tooltip]
+  const viewChoices: [string, boolean, string][] = info?.documents
+    ? [
+        ["Documents", true, "Documents as they are stored (nesting and types)"],
+        ["Table", false, "Fields as columns"],
+      ]
+    : [
+        ["Table", false, "Rows and columns"],
+        ["JSON", true, "Each row as a JSON object"],
+      ];
+  const chooseView = (objects: boolean) =>
+    info?.documents ? updateSettings({ mongoView: objects ? "documents" : "table" }) : updateSettings({ sqlView: objects ? "json" : "table" });
+  const viewSwitch = info && (
     <div className="segmented small-seg" role="tablist" aria-label="Show results as">
-      {(["documents", "table"] as const).map((v) => (
+      {viewChoices.map(([label, objects, title]) => (
         <button
-          key={v}
+          key={label}
           role="tab"
-          aria-selected={mongoView === v}
-          className={mongoView === v ? "seg active" : "seg"}
-          onClick={() => updateSettings({ mongoView: v })}
-          title={v === "documents" ? "Documents as they are stored (nesting and types)" : "Fields as columns"}
+          aria-selected={asDocuments === objects}
+          className={asDocuments === objects ? "seg active" : "seg"}
+          onClick={() => chooseView(objects)}
+          title={title}
         >
-          {v === "documents" ? "Documents" : "Table"}
+          {label}
         </button>
       ))}
     </div>
