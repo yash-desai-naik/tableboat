@@ -50,7 +50,7 @@
       }
     },
     "publisher": "Tableboat",
-    "copyright": "Tableboat",
+    "copyright": "Copyright (c) 2026 Yash Desai. MIT License.",
     "category": "DeveloperTool",
     "shortDescription": "A small, fast database client",
     "longDescription": "Tableboat: MySQL, MariaDB, SQLite and MongoDB client with a SQL editor, results grid with safe editing, and Claude Code built in."

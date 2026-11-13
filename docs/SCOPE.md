@@ -3,7 +3,7 @@
 A deliberately small database client. It keeps the parts of TablePlus and VS Code you actually use, and nothing else.
 Built with Tauri 2 (Rust backend, WebView2 UI). Name, icons and artwork are our own.
 
-The full TablePlus research stays in `docs/research/` as reference for later; it is **not** the v1 target.
+The background research (kept privately, not in this repository) is reference for later; it is **not** the v1 target.
 
 Status: `[ ]` not started · `[~]` in progress · `[x]` done and checked by you.
 

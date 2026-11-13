@@ -1,8 +1,8 @@
 # Tableboat – build plan
 
 What to build is in [`SCOPE.md`](SCOPE.md). This file is how and in what order.
-Background research is in [`research/`](research/): TablePlus features (`features-ui.md`), changelogs (`changelogs.md`),
-GitHub issues (`issues.md`), libraries and benchmarks (`libraries.md`), visuals and trends (`ui-visual.md`, `screenshots/`).
+It was planned from background research (other database clients' features, changelogs and public issues, libraries
+and benchmarks, visual trends). Those notes are kept privately and are not part of this repository.
 
 ---
 
@@ -78,7 +78,7 @@ Tableboat.exe
 
 ## 4. Visual direction
 
-Familiar TablePlus layout, quieter 2026 Windows skin. Details in `research/ui-visual.md` §3.
+Familiar TablePlus layout, quieter 2026 Windows skin. Details in the (private) visual research notes.
 
 - **Title bar (40 px)** with the sidebar/AI toggles and a centred **connection pill**: tag chip (`PROD`, `LOCAL`), driver and version, nickname, `db.schema`. The connection colour tints the pill and a 2 px line under the title bar, never the whole bar. Pill text colour picked automatically for contrast. Windows Snap Layouts work.
 - **Tabs (30 px)**, content-width; the active tab joins the editor below it; × on hover.
@@ -109,7 +109,7 @@ Each milestone ends with: a build you run and try, measured RAM (private working
 
 ## 6. Edge cases built in from the research
 
-Taken from TablePlus's own bugs (`research/issues.md`, `research/changelogs.md`); each becomes a test.
+Taken from TablePlus's own bugs (its public issue trackers and changelogs); each becomes a test.
 
 - **Safe writes**: values bound as parameters, never pasted into SQL (typing `888--` must not touch other rows). No `UPDATE`/`DELETE` without a key-based `WHERE`. SQLite rows with `NULL`s deletable (`IS NULL`). MySQL generated columns never written.
 - **Pending edits**: no false "changed" marks; Esc cancels an edit; empty string ≠ `NULL`; an edit still being typed is included when you save.

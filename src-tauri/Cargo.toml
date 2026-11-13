@@ -2,6 +2,8 @@
 name = "tableboat"
 version = "0.1.0"
 description = "A small, fast database client"
+license = "MIT"
+repository = "https://github.com/yash-desai-naik/tableboat"
 edition = "2024"
 publish = false
 default-run = "tableboat"
