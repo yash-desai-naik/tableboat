@@ -1162,6 +1162,16 @@ mod tests {
         assert!(tool(&h, "update_settings", json!({ "changes": { "theme": "dark" } })).unwrap().contains("Nothing to change"));
         assert_eq!(h.asked.lock().unwrap().len(), n);
         assert!(tool(&h, "get_settings", json!({})).unwrap().contains("\"theme\": \"dark\""));
+        // Colour themes: an id of the right mode is saved; a light theme as darkTheme or an
+        // unknown id is refused with the valid ids.
+        let out = tool(&h, "update_settings", json!({ "changes": { "darkTheme": "catppuccin-mocha" } })).unwrap();
+        assert!(out.contains("darkTheme: \"tableboat-dark\" → \"catppuccin-mocha\""), "{out}");
+        assert_eq!(crate::prefs::load(&crate::prefs::path().unwrap()).dark_theme, "catppuccin-mocha");
+        let err = tool(&h, "update_settings", json!({ "changes": { "darkTheme": "catppuccin-latte" } })).unwrap_err();
+        assert!(err.contains("light theme") && err.contains("tokyo-night"), "{err}");
+        assert!(tool(&h, "update_settings", json!({ "changes": { "lightTheme": "nope" } })).unwrap_err().contains("github-light"));
+        assert_eq!(crate::prefs::load(&crate::prefs::path().unwrap()).dark_theme, "catppuccin-mocha");
+        assert!(tool(&h, "get_settings", json!({})).unwrap().contains("darkTheme: colour theme used in dark mode"));
 
         // A new connection from a file path; tested before the question.
         let out = tool(&h, "save_connection", json!({ "name": "Shop", "file": db_file.display().to_string(), "tag": "Local" })).unwrap();

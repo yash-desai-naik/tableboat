@@ -9,12 +9,42 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 const ALL_KINDS: [&str; 5] = ["table", "view", "function", "procedure", "trigger"];
+const DEFAULT_LIGHT_THEME: &str = "tableboat-light";
+const DEFAULT_DARK_THEME: &str = "tableboat-dark";
+
+/// Is `id` a theme of this mode ("light" or "dark")?
+fn theme_fits(id: &str, mode: &str) -> bool {
+    crate::themes::mode_of(id) == Some(mode)
+}
+
+/// Refuse a `lightTheme` / `darkTheme` value that isn't a theme id of that mode, naming the
+/// valid ones (rather than quietly falling back to the default, as a hand-edited file does).
+fn check_theme_ids(patch: &Value) -> Result<(), String> {
+    for (key, mode) in [("lightTheme", "light"), ("darkTheme", "dark")] {
+        let Some(asked) = patch.get(key) else { continue };
+        let id = asked.as_str().unwrap_or("");
+        if theme_fits(id, mode) {
+            continue;
+        }
+        let why = match crate::themes::mode_of(id) {
+            Some(other) => format!("\"{id}\" is a {other} theme"),
+            None => format!("there is no theme {asked}"),
+        };
+        let valid = crate::themes::ids_for(mode).join(", ");
+        return Err(format!("\"{key}\" must be a {mode} theme id ({why}). {mode} themes: {valid}"));
+    }
+    Ok(())
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct Settings {
     /// "system" | "light" | "dark"
     pub theme: String,
+    /// The colour theme used in light mode: a light theme id from `src/themes/themes.json`.
+    pub light_theme: String,
+    /// The colour theme used in dark mode: a dark theme id from `src/themes/themes.json`.
+    pub dark_theme: String,
     /// "compact" | "default" | "comfortable"
     pub density: String,
     /// Whole-UI zoom factor (Ctrl+= / Ctrl+-).
@@ -58,6 +88,8 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             theme: "system".into(),
+            light_theme: DEFAULT_LIGHT_THEME.into(),
+            dark_theme: DEFAULT_DARK_THEME.into(),
             density: "default".into(),
             ui_zoom: 1.0,
             editor_font_size: 13,
@@ -90,6 +122,12 @@ impl Settings {
         let d = Settings::default();
         if !matches!(self.theme.as_str(), "system" | "light" | "dark") {
             self.theme = d.theme;
+        }
+        if !theme_fits(&self.light_theme, "light") {
+            self.light_theme = d.light_theme;
+        }
+        if !theme_fits(&self.dark_theme, "dark") {
+            self.dark_theme = d.dark_theme;
         }
         if !matches!(self.density.as_str(), "compact" | "default" | "comfortable") {
             self.density = d.density;
@@ -135,7 +173,9 @@ impl Settings {
 }
 
 /// What each setting accepts (for Claude and `tb settings`).
-pub const HELP: &str = "theme: \"system\" | \"light\" | \"dark\"
+pub const HELP: &str = "theme: \"system\" | \"light\" | \"dark\" (\"system\" follows Windows)
+lightTheme: colour theme used in light mode: \"tableboat-light\" (default) | \"catppuccin-latte\" | \"github-light\" | \"one-light\" | \"rose-pine-dawn\" | \"gruvbox-light\" | \"kanagawa-lotus\" | \"hc-light\"
+darkTheme: colour theme used in dark mode: \"tableboat-dark\" (default) | \"catppuccin-mocha\" | \"tokyo-night\" | \"github-dark\" | \"one-dark\" | \"rose-pine\" | \"gruvbox-dark\" | \"kanagawa-wave\" | \"nord\" | \"dracula\" | \"hc-dark\"
 density: \"compact\" | \"default\" | \"comfortable\"
 uiZoom: 0.5 to 3.0 (whole window zoom)
 editorFontSize, gridFontSize: 8 to 40
@@ -162,6 +202,7 @@ impl Settings {
     /// refused (the app's own controls clamp quietly; a typed or asked-for value should not).
     /// Returns the new settings and what actually changes.
     pub fn checked_change(&self, patch: &Value) -> Result<(Settings, Vec<Change>), String> {
+        check_theme_ids(patch)?;
         let next = self.merged(patch)?;
         let before = serde_json::to_value(self).map_err(|e| e.to_string())?;
         let after = serde_json::to_value(&next).map_err(|e| e.to_string())?;
@@ -209,4 +250,67 @@ pub fn load(path: &Path) -> Settings {
 pub fn save(path: &Path, settings: &Settings) -> Result<(), String> {
     let text = serde_json::to_string_pretty(settings).map_err(|e| e.to_string())?;
     crate::paths::write_atomic(path, &text).map_err(|e| format!("could not save settings: {e}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn temp_file(text: &str) -> PathBuf {
+        let p = std::env::temp_dir().join(format!("tableboat-prefs-{}.json", uuid::Uuid::new_v4().simple()));
+        fs::write(&p, text).unwrap();
+        p
+    }
+
+    #[test]
+    fn theme_ids_default_to_tableboat() {
+        let d = Settings::default();
+        assert_eq!((d.light_theme.as_str(), d.dark_theme.as_str()), ("tableboat-light", "tableboat-dark"));
+        let v = serde_json::to_value(&d).unwrap();
+        assert_eq!(v["lightTheme"], "tableboat-light");
+        assert_eq!(v["darkTheme"], "tableboat-dark");
+    }
+
+    #[test]
+    fn old_files_and_bad_theme_ids_load_with_defaults() {
+        // A settings file from before the theme keys existed.
+        let p = temp_file(r#"{ "theme": "dark", "editorFontSize": 15 }"#);
+        let s = load(&p);
+        assert_eq!((s.theme.as_str(), s.editor_font_size), ("dark", 15));
+        assert_eq!((s.light_theme.as_str(), s.dark_theme.as_str()), ("tableboat-light", "tableboat-dark"));
+        // Hand-edited ids that don't exist or have the wrong mode fall back; good ones stay.
+        fs::write(&p, r#"{ "lightTheme": "catppuccin-mocha", "darkTheme": "nope" }"#).unwrap();
+        let s = load(&p);
+        assert_eq!((s.light_theme.as_str(), s.dark_theme.as_str()), ("tableboat-light", "tableboat-dark"));
+        fs::write(&p, r#"{ "lightTheme": "github-light", "darkTheme": "tokyo-night" }"#).unwrap();
+        let s = load(&p);
+        assert_eq!((s.light_theme.as_str(), s.dark_theme.as_str()), ("github-light", "tokyo-night"));
+        let _ = fs::remove_file(&p);
+    }
+
+    #[test]
+    fn theme_ids_are_checked_by_mode() {
+        let s = Settings::default();
+        let (next, changes) = s.checked_change(&json!({ "darkTheme": "catppuccin-mocha" })).unwrap();
+        assert_eq!(next.dark_theme, "catppuccin-mocha");
+        assert_eq!(changes, vec![("darkTheme".to_string(), json!("tableboat-dark"), json!("catppuccin-mocha"))]);
+        assert_eq!(s.checked_change(&json!({ "lightTheme": "catppuccin-latte" })).unwrap().0.light_theme, "catppuccin-latte");
+
+        let err = s.checked_change(&json!({ "darkTheme": "catppuccin-latte" })).unwrap_err();
+        assert!(err.contains("\"catppuccin-latte\" is a light theme") && err.contains("tableboat-dark, catppuccin-mocha"), "{err}");
+        assert!(!err.contains("tableboat-light"), "only dark ids are listed: {err}");
+        let err = s.checked_change(&json!({ "lightTheme": "solarized" })).unwrap_err();
+        assert!(err.contains("no theme \"solarized\"") && err.contains("tableboat-light, catppuccin-latte"), "{err}");
+        assert!(s.checked_change(&json!({ "lightTheme": 5 })).is_err());
+    }
+
+    #[test]
+    fn help_lists_every_theme_id() {
+        for (key, mode) in [("lightTheme", "light"), ("darkTheme", "dark")] {
+            let line = HELP.lines().find(|l| l.starts_with(&format!("{key}:"))).expect("a HELP line");
+            let listed: Vec<&str> = line.split('"').skip(1).step_by(2).collect();
+            assert_eq!(listed, crate::themes::ids_for(mode), "HELP's {key} line must list the {mode} themes of themes.json");
+        }
+    }
 }

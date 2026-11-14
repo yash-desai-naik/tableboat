@@ -57,6 +57,20 @@ Exit code 1 on any error.
 | `tb settings` / `get <key>` / `set <key> <value>` / `path` | the app's settings (an open app picks up changes when its window is next focused) |
 | `tb version` | version, build, folders, Claude Code location |
 
+`tb settings` lists every key and its value. The look is set by three of them:
+
+| Key | Values |
+|---|---|
+| `theme` | `system` (follows Windows) · `light` · `dark` |
+| `lightTheme` | the theme used in light mode: `tableboat-light` (default), `catppuccin-latte`, `github-light`, `one-light`, `rose-pine-dawn`, `gruvbox-light`, `kanagawa-lotus`, `hc-light` |
+| `darkTheme` | the theme used in dark mode: `tableboat-dark` (default), `catppuccin-mocha`, `tokyo-night`, `github-dark`, `one-dark`, `rose-pine`, `gruvbox-dark`, `kanagawa-wave`, `nord`, `dracula`, `hc-dark` |
+
+```
+tb settings set darkTheme tokyo-night
+```
+
+A light theme can't be set as `darkTheme` (or the other way round): `tb` refuses it and lists the valid ids.
+
 ## Ask Claude
 
 ```
