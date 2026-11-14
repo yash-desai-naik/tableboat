@@ -1,6 +1,11 @@
 # Builds the Windows installer when a version tag (v1.2.3) is pushed, and creates a DRAFT
-# GitHub release with the installer, its SHA-256 checksum, and release notes taken from
-# CHANGELOG.md. Review the draft on GitHub, then publish it.
+# GitHub release with the installer, its SHA-256 checksum, release notes taken from
+# CHANGELOG.md, and the update feed (latest.json + the installer's signature) that installed
+# copies of Tableboat check. Review the draft on GitHub, then publish it: only then do
+# installed copies see the update.
+#
+# Needs the repository secret TAURI_SIGNING_PRIVATE_KEY (the updater key; see
+# docs/DEVELOPMENT.md).
 name: Release
 
 on:
@@ -54,8 +59,11 @@ jobs:
 
       - run: npm ci
 
-      - name: Build the app, tb and the installer
-        run: npx tauri build
+      - name: Build the app, tb and the signed installer
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: npx tauri build --config src-tauri/tauri.release.conf.json
 
       - name: Checksum and release notes
         shell: pwsh
@@ -68,6 +76,23 @@ jobs:
             Replace('{version}', $env:VERSION).Replace('{file}', $file).
             Replace('{sha256}', $sha).Replace('{repo}', '${{ github.repository }}')
           Set-Content -Path release-notes.md -Value ((Get-Content changelog-section.md -Raw) + "`n`n" + $footer) -Encoding utf8
+
+          # The update feed: version, notes, and the signed installer for installed copies.
+          $sigPath = "src-tauri/target/release/bundle/nsis/$file.sig"
+          if (-not (Test-Path $sigPath)) { Write-Error "No updater signature ($sigPath): is the TAURI_SIGNING_PRIVATE_KEY secret set?"; exit 1 }
+          Copy-Item $sigPath "$file.sig"
+          $feed = [ordered]@{
+            version   = $env:VERSION
+            notes     = (Get-Content changelog-section.md -Raw)
+            pub_date  = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+            platforms = [ordered]@{
+              "windows-x86_64" = [ordered]@{
+                signature = (Get-Content $sigPath -Raw).Trim()
+                url       = "https://github.com/${{ github.repository }}/releases/download/v$($env:VERSION)/$file"
+              }
+            }
+          }
+          Set-Content -Path latest.json -Value ($feed | ConvertTo-Json -Depth 5) -Encoding utf8NoBOM
           "FILE=$file" >> $env:GITHUB_ENV
 
       - name: Create the draft release
@@ -79,9 +104,9 @@ jobs:
           gh release view $tag 2>$null | Out-Null
           if ($LASTEXITCODE -eq 0) {
             # Re-run of the same tag: replace the files and notes.
-            gh release upload $tag $env:FILE SHA256SUMS.txt --clobber
+            gh release upload $tag $env:FILE "$env:FILE.sig" SHA256SUMS.txt latest.json --clobber
             gh release edit $tag --notes-file release-notes.md
           } else {
-            gh release create $tag $env:FILE SHA256SUMS.txt --draft --verify-tag `
+            gh release create $tag $env:FILE "$env:FILE.sig" SHA256SUMS.txt latest.json --draft --verify-tag `
               --title "Tableboat $env:VERSION" --notes-file release-notes.md
           }

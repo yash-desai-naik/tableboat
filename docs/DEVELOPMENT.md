@@ -109,7 +109,30 @@ built from the public source.
    notes made from the changelog section plus `.github/release-footer.md` (download, install, checksum).
 6. Read the draft under Releases, edit if needed, and press **Publish release**.
 
+Publishing is what makes installed copies offer the update: they read `latest.json` from the **latest
+published** release (`releases/latest/download/latest.json`), never from a draft or pre-release.
+
 The CI workflow (`.github/workflows/ci.yml`) type-checks, tests and builds every push and pull request.
+
+### The updater key
+
+Updates are signed with a private key; installed copies only accept installers whose signature matches the
+public key in `src-tauri/tauri.conf.json` (`plugins.updater.pubkey`).
+
+- Private key: `%USERPROFILE%\.tauri\tableboat-updater.key` on the maintainer's PC (no password), and the
+  GitHub repository secret `TAURI_SIGNING_PRIVATE_KEY` (its contents) for the Release workflow.
+- **Keep a backup of the key** (e.g. in a password manager). Without it, no new version can be signed for
+  existing installs: users would have to download the next installer by hand once, after a new key and
+  public key are set.
+- Local builds don't need the key: `npx tauri build` makes the installer without updater files. To make a
+  signed one locally (as the workflow does):
+
+  ```powershell
+  $env:TAURI_SIGNING_PRIVATE_KEY = Get-Content "$env:USERPROFILE\.tauri\tableboat-updater.key" -Raw
+  npx tauri build --config src-tauri/tauri.release.conf.json
+  ```
+
+- `TABLEBOAT_UPDATE_URL` points a running copy at another feed (for testing updates).
 
 ## Measure memory and CPU
 

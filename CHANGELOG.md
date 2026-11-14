@@ -21,6 +21,8 @@ Claude Code built in.
   terminal.
 - **Claude Code pane:** ask about your data next to the editor. Claude reads freely, and asks
   before anything that changes data, settings or files.
+- **Updates built in:** Tableboat tells you when a new version is out, shows what's new, and
+  installs it with one click (signed, verified, then restarts).
 
 ### Added
 
@@ -60,6 +62,11 @@ Claude Code built in.
   - `tb export` (CSV, Excel, JSON, Markdown, SQL), `tb dump` (whole databases).
   - `tb ask` (Claude in the terminal), `tb open`, `tb settings`, `tb version`.
   - Safety: connections tagged `production` refuse writes unless you confirm; `--read-only`.
+- **Updates**
+  - A check at start-up and once a day (Settings > Start-up), and "Check for updates" in the
+    About box and the command palette.
+  - Install and restart, What's new, Later, or Skip this version.
+  - Updates are signed; Tableboat verifies the signature before installing, and keeps your tabs.
 - Light and dark themes, three densities, zoom, a command palette, and an About box with the
   version, build and data folders.
 

@@ -1,3 +1,4 @@
+import { checkForUpdates } from "./update";
 import { connectionActions } from "../connections/ConnectionList";
 import { api } from "./connections";
 import { OBJECT_KINDS } from "./meta";
@@ -170,6 +171,7 @@ export function buildCommands(ctx: CommandContext): Command[] {
     },
     { id: "settings.open", category: "Preferences", title: "Open Settings", keys: ["Ctrl+,"], run: () => uiActions.openSettings() },
     { id: "help.about", category: "Help", title: "About Tableboat (version)", run: () => uiActions.openAbout() },
+    { id: "help.updates", category: "Help", title: "Check for Updates…", run: () => void checkForUpdates() },
     {
       id: "settings.restoreTabs",
       category: "Preferences",

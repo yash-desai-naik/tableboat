@@ -101,6 +101,16 @@ pub fn open_app_folder(which: String) -> Result<(), String> {
     Ok(())
 }
 
+/// Tableboat's releases on GitHub, in the default browser (a fixed address, nothing from the page).
+#[tauri::command]
+pub fn open_releases_page() -> Result<(), String> {
+    std::process::Command::new("explorer.exe")
+        .arg("https://github.com/yash-desai-naik/tableboat/releases")
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| e.to_string())
+}
+
 /// Open settings.json in the user's default editor for .json files (Notepad if none).
 #[tauri::command]
 pub fn open_settings_file() -> Result<String, String> {

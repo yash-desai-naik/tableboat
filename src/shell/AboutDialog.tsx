@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { getTauriVersion, getVersion } from "@tauri-apps/api/app";
 import { invoke } from "@tauri-apps/api/core";
 import { AppMark } from "./Icons";
+import { checkForUpdates, installUpdate, useUpdate } from "../lib/update";
 import { Dialog } from "./Dialog";
 
 interface AppPaths {
@@ -36,6 +37,7 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
   const [paths, setPaths] = useState<AppPaths | null>(null);
   const [copied, setCopied] = useState(false);
   const b = __APP_BUILD__;
+  const update = useUpdate();
 
   useEffect(() => {
     const webview = /Edg\/([\d.]+)/.exec(navigator.userAgent)?.[1] ?? "?";
@@ -91,6 +93,24 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
         <div>
           <div className="about-name">Tableboat {info?.version ?? ""}</div>
           <div className="muted small">A small database client for MySQL, MariaDB, SQLite and MongoDB, with Claude Code built in.</div>
+          <div className="about-update">
+            {update.info ? (
+              <>
+                <span>Version {update.info.version} is available.</span>
+                <button className="btn primary small-btn" disabled={update.phase === "downloading" || update.phase === "installing"} onClick={() => void installUpdate()}>
+                  Install and restart
+                </button>
+              </>
+            ) : (
+              <>
+                <button className="btn small-btn" disabled={update.phase === "checking"} onClick={() => void checkForUpdates()}>
+                  {update.phase === "checking" ? "Checking…" : "Check for updates"}
+                </button>
+                {update.phase === "uptodate" && <span className="muted small">You're up to date.</span>}
+                {update.phase === "error" && <span className="muted small">{update.error}</span>}
+              </>
+            )}
+          </div>
         </div>
       </div>
       <table className="kv about-table">

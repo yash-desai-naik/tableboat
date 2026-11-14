@@ -5,6 +5,7 @@ mod ai;
 mod commands;
 mod settings;
 mod state;
+mod update;
 
 // The window-free core (connections, databases, paths), shared with the `tb` command line.
 use tableboat_core::{conn, db, paths};
@@ -72,6 +73,8 @@ fn main() {
         }))
         .manage(LaunchConnect(std::sync::Mutex::new(launch)))
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .manage(update::UpdateState::default())
         .setup(|app| {
             // Fit the screen, centered; the UI then maximizes and shows the window once it has
             // painted (no white flash), so "Restore Down" returns to this size and place.
@@ -88,6 +91,7 @@ fn main() {
             app.manage(ai::ClaudeHub::default());
             app.manage(state::WindowList::default());
             reopen_windows(app.handle());
+            update::start_background_checks(app.handle().clone());
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -110,6 +114,10 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             settings::get_settings,
+            update::update_check,
+            update::update_status,
+            update::update_install,
+            state::open_releases_page,
             settings::update_settings,
             commands::connections_list,
             commands::connection_save,

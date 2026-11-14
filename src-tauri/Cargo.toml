@@ -54,6 +54,8 @@ base64 = "0.22"
 dirs = "7"
 # The `tb` command line's arguments and help.
 clap = { version = "4", features = ["derive"] }
+# Updates from GitHub releases, signature-checked against the key in tauri.conf.json.
+tauri-plugin-updater = "2"
 
 [target.'cfg(windows)'.dependencies]
 # Already built for Tauri's windowing; used for the window's "Restore Down" rectangle and to

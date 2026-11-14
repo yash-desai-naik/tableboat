@@ -14,6 +14,7 @@ import { flushWorkspace, rememberLastConnection, restoreFor, trackWorkspace } fr
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { SettingsPage } from "./settings/SettingsPage";
 import { AboutDialog } from "./shell/AboutDialog";
+import { UpdateNotice } from "./shell/UpdateNotice";
 import { CommandPalette } from "./palette/CommandPalette";
 import { DatabasePicker } from "./palette/DatabasePicker";
 import { QuickOpen } from "./palette/QuickOpen";
@@ -219,6 +220,7 @@ export function App() {
       {overlay === "quickOpen" && sessionId && <QuickOpen sessionId={sessionId} onClose={() => setOverlay(null)} />}
       {settingsOpen && <SettingsPage onClose={() => setSettingsOpen(false)} />}
       {aboutOpen && <AboutDialog onClose={() => setAboutOpen(false)} />}
+      <UpdateNotice />
       {switcher && <ConnectionSwitcher initialMode={switcher} onClose={() => setSwitcher(null)} />}
       {overlay === "databases" && sessionId && (
         <DatabasePicker sessionId={sessionId} onClose={() => setOverlay(null)} />

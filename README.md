@@ -26,14 +26,16 @@ no Node.js at runtime: about 140 MB of memory with a connection open, and no CPU
   first. It can also work the app: add or edit connections, change settings, export tables or whole databases.
 - **`tb` command line:** everything above from a terminal: `tb query`, `tb export`, `tb dump`, `tb ask` and
   more. See [docs/CLI.md](docs/CLI.md).
+- **Updates:** Tableboat tells you when a new version is out and installs it for you (signed and verified).
 - Several windows, tabs restored per connection, light and dark themes, three densities, command palette.
 
 ## Install
 
 Download the installer from the [latest release](https://github.com/yash-desai-naik/tableboat/releases/latest)
 (`Tableboat_<version>_x64-setup.exe`) and run it. It installs for your Windows user only (no administrator
-rights) into `%LOCALAPPDATA%\Tableboat` and puts the `tb` command on your PATH. Newer installers upgrade in
-place and keep your connections and settings.
+rights) into `%LOCALAPPDATA%\Tableboat` and puts the `tb` command on your PATH. After that, Tableboat tells
+you about new versions and installs them itself (or check any time: About > Check for updates); your
+connections and settings are kept.
 
 The installer isn't code-signed yet: if Windows SmartScreen says "Windows protected your PC", click
 **More info**, then **Run anyway**. Each release lists the installer's SHA-256 checksum so you can check it.

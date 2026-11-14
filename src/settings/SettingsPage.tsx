@@ -95,6 +95,13 @@ const ENTRIES: Entry[] = [
     label: "Reconnect to the last connection at start-up",
     help: "Skipped after you disconnect, and for connections that ask for their password.",
   },
+  {
+    section: "Start-up",
+    key: "checkUpdates",
+    type: "toggle",
+    label: "Check for updates automatically",
+    help: "At start-up and once a day, Tableboat asks GitHub for its latest version (nothing about you is sent). You decide when to install.",
+  },
 
   {
     section: "Claude",

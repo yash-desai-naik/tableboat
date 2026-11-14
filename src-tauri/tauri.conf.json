@@ -54,5 +54,16 @@
     "category": "DeveloperTool",
     "shortDescription": "A small, fast database client",
     "longDescription": "Tableboat: MySQL, MariaDB, SQLite and MongoDB client with a SQL editor, results grid with safe editing, and Claude Code built in."
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDlBNkFCMzZBMjlFNzMxMzgKUldRNE1lY3Bhck5xbXBmVmdVOTRhaVdKaHpzcUY4WWhVVDdOaDNtYkRjTmp2WkpHaXlaNjV5cDAK",
+      "endpoints": [
+        "https://github.com/yash-desai-naik/tableboat/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   }
 }

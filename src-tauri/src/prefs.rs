@@ -48,6 +48,10 @@ pub struct Settings {
     pub mongo_view: String,
     /// How SQL results show: "table" or "json".
     pub sql_view: String,
+    /// Look for a new version on GitHub at start-up and once a day.
+    pub check_updates: bool,
+    /// A version the user chose to skip (no notice for it; a manual check still shows it).
+    pub skipped_update: String,
 }
 
 impl Default for Settings {
@@ -74,6 +78,8 @@ impl Default for Settings {
             reopen_last_connection: true,
             mongo_view: "documents".into(),
             sql_view: "table".into(),
+            check_updates: true,
+            skipped_update: String::new(),
         }
     }
 }
@@ -144,7 +150,9 @@ claudeModel: \"\" (Claude Code's default) | \"sonnet\" | \"opus\" | \"haiku\" | 
 restoreTabs: reopen a connection's tabs when connecting again
 reopenLastConnection: reconnect to the last connection at start-up
 mongoView: \"documents\" | \"table\" (how MongoDB results show)
-sqlView: \"table\" | \"json\" (how SQL results show)";
+sqlView: \"table\" | \"json\" (how SQL results show)
+checkUpdates: look for a new Tableboat version at start-up and once a day
+skippedUpdate: a version not to be told about again (\"\" = none)";
 
 /// One changed setting: key, old value, new value.
 pub type Change = (String, Value, Value);

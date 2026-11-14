@@ -28,6 +28,8 @@ export interface Settings {
   reopenLastConnection: boolean;
   mongoView: "documents" | "table";
   sqlView: "table" | "json";
+  checkUpdates: boolean;
+  skippedUpdate: string;
 }
 
 let current: Settings | null = null;
