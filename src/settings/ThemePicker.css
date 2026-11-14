@@ -19,7 +19,8 @@
 .theme-used-now {
   padding: 0 6px;
   border-radius: var(--radius-pill);
-  background: var(--accent-soft);
+  /* The accent button pair: the theme test guarantees 4.5:1 for text on it. */
+  background: var(--accent-fill);
   color: var(--accent-text);
   font-size: var(--fs-xs);
   line-height: 18px;
