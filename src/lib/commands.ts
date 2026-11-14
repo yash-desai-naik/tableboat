@@ -9,7 +9,9 @@ import { cancelActiveRun, focusActiveEditor, formatActive, openQuery, runAll, ru
 import { activateTabAt, cycleTab, getWorkspace, keepTab } from "./workspace";
 import { requestCloseAll, requestCloseOthers, requestCloseTab } from "./tabs";
 import { tableActions } from "./edits";
-import { getSettings, updateSettings, type Density, type Theme } from "./settings";
+import { getSettings, updateSettings, type Density, type Settings, type Theme } from "./settings";
+import { pickTheme, THEMES, themesFor, type ThemeData } from "../themes";
+import { shownMode } from "./themeMode";
 import { shutdown as stopClaude } from "./claude";
 
 export interface Command {
@@ -45,9 +47,30 @@ function clampFont(size: number) {
   return Math.min(40, Math.max(8, size));
 }
 
+/** The colour theme the window shows now for these settings. */
+function shownTheme(s: Settings): ThemeData {
+  const mode = shownMode(s.theme);
+  return pickTheme(mode, mode === "light" ? s.lightTheme : s.darkTheme);
+}
+
+/** Choose a theme for its mode, and switch to that mode if the window shows the other one. */
+function chooseColorTheme(t: ThemeData) {
+  const patch: Partial<Settings> = t.mode === "light" ? { lightTheme: t.id } : { darkTheme: t.id };
+  if (shownMode(getSettings().theme) !== t.mode) patch.theme = t.mode;
+  updateSettings(patch);
+}
+
+/** The next theme (in themes.json order) of the mode showing now. */
+function nextColorTheme() {
+  const current = shownTheme(getSettings());
+  const list = themesFor(current.mode);
+  chooseColorTheme(list[(list.findIndex((t) => t.id === current.id) + 1) % list.length]);
+}
+
 /** Every command in the app. Rebuilt when settings change so check marks stay current. */
 export function buildCommands(ctx: CommandContext): Command[] {
   const s = getSettings();
+  const showing = shownTheme(s).id;
 
   const theme = (value: Theme, title: string): Command => ({
     id: `theme.${value}`,
@@ -263,6 +286,17 @@ export function buildCommands(ctx: CommandContext): Command[] {
         updateSettings({ theme: dark ? "light" : "dark" });
       },
     },
+    // The palette shows "Theme: <title>", so these read "Theme: Catppuccin Mocha" and "Theme: Next Theme".
+    { id: "theme.next", category: "Theme", title: "Next Theme", run: nextColorTheme },
+    ...THEMES.map(
+      (t): Command => ({
+        id: `theme.set.${t.id}`,
+        category: "Theme",
+        title: t.name,
+        checked: t.id === showing,
+        run: () => chooseColorTheme(t),
+      }),
+    ),
     density("compact", "Compact"),
     density("default", "Default"),
     density("comfortable", "Comfortable"),
