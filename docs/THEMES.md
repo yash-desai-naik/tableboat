@@ -125,16 +125,32 @@ src-tauri/src/themes.rs     test only: reads the same JSON and enforces section 
 Mixes are done in OKLab so they look even across hues, and `index.ts` computes each one to a plain hex or
 rgba value (never `color-mix()`), because the result grid reads the variables for a canvas.
 
+**Minimum step.** The surface tokens marked * below keep the mix's hue and chroma but must sit at least a
+minimum lightness step from their base (chrome or bg): lighter in dark themes, darker in light ones. The
+step is measured in toe-corrected OKLab lightness (Okhsl's L<sub>r</sub>, even near black, where plain
+OKLab L steps are invisible) from the hand-picked Tableboat values:
+
+| Token | Dark | Light |
+|---|---|---|
+| `--bg-hover` / `--bg-active` | 0.076 / 0.118 | 0.039 / 0.071 |
+| `--control-fill` / `-hover` | 0.084 / 0.126 | 0.028 / 0.063 |
+| `--surface-raised` | 0.16 | – (elevated) |
+| `--border` / `--border-strong` | 0.06 / 0.148 | 0.084 / 0.149 |
+| `--zebra` / `--grid-line` | 0.017 / 0.064 | 0.024 / 0.06 |
+
+Without it near-black themes (High Contrast Dark, GitHub Dark) got a hover row and active tab within a
+step or two of black.
+
 | Token | Formula | Used by |
 |---|---|---|
-| `--bg-hover` | text 6% over chrome | tree rows, icon buttons, caption buttons, db switch |
-| `--bg-active` | text 11% over chrome | selected tree row, menu/palette selection |
-| `--control-fill` / `-hover` | text 7% / 11% over chrome | buttons, segmented controls, result tabs |
-| `--surface-raised` | dark: text 16% over chrome · light: elevated | active tab, active segment, active result tab |
-| `--border` / `--border-strong` | text 10% / 20% over bg | dividers / input and dialog borders |
+| `--bg-hover` * | text 6% over chrome | tree rows, icon buttons, caption buttons, db switch |
+| `--bg-active` * | text 11% over chrome | selected tree row, menu/palette selection |
+| `--control-fill` / `-hover` * | text 7% / 11% over chrome | buttons, segmented controls, result tabs |
+| `--surface-raised` * | dark: text 16% over chrome · light: elevated | active tab, active segment, active result tab |
+| `--border` / `--border-strong` * | text 10% / 20% over bg | dividers / input and dialog borders |
 | `--focus-ring` | accent | keyboard focus outline (must reach 3:1, section 6) |
-| `--zebra` | text 3% over bg | alternate grid rows |
-| `--grid-line` | text 7% over bg | grid cell borders (today hard-coded) |
+| `--zebra` * | text 3% over bg | alternate grid rows |
+| `--grid-line` * | text 7% over bg | grid cell borders (today hard-coded) |
 | `--selection` | accent 30% over bg | selected text, selected grid cells |
 | `--accent-hover` | fill's OKLCH lightness −0.035, or +0.035 when darker would drop `onAccent` below 4.5:1 | primary button hover (replaces the white/black mixes) |
 | `--accent-tint` / `--accent-soft` | accent 20% over bg / accent at 22% (dark) 14% (light) alpha | autocomplete selection, soft highlights |

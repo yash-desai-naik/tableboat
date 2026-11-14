@@ -128,6 +128,44 @@ function shiftLightness(h: string, d: number): string {
   return fromOklab([Math.min(1, Math.max(0, L + d)), C * Math.cos(H), C * Math.sin(H)]);
 }
 
+// Okhsl's lightness "toe": OKLab L made even near black, where plain L steps are invisible.
+const K1 = 0.206;
+const K2 = 0.03;
+const K3 = (1 + K1) / (1 + K2);
+const toe = (x: number) => 0.5 * (K3 * x - K1 + Math.sqrt((K3 * x - K1) ** 2 + 4 * K2 * K3 * x));
+const toeInv = (x: number) => (x * x + K1 * x) / (K3 * (x + K2));
+
+/**
+ * Smallest lightness step (toe-corrected OKLab L) from the base surface: chrome for hover, active,
+ * controls and raised, bg for the rest. Measured from the hand-picked Tableboat Dark and Light values;
+ * without it near-black themes get a hover row or active tab the eye cannot see.
+ */
+const MIN_STEP: Record<ThemeMode, Record<string, number>> = {
+  dark: {
+    "--bg-hover": 0.076, "--bg-active": 0.118, "--control-fill": 0.084, "--control-fill-hover": 0.126,
+    "--surface-raised": 0.16, "--border": 0.06, "--border-strong": 0.148, "--zebra": 0.017, "--grid-line": 0.064,
+  },
+  light: {
+    "--bg-hover": 0.039, "--bg-active": 0.071, "--control-fill": 0.028, "--control-fill-hover": 0.063,
+    "--border": 0.084, "--border-strong": 0.149, "--zebra": 0.024, "--grid-line": 0.06,
+  },
+};
+
+/**
+ * `text pct%` over `base`; if that moved lightness by less than `min`, the same hue and chroma at
+ * `min` from the base instead: lighter in dark themes, darker in light ones.
+ */
+function surfaceMix(text: string, pct: number, base: string, min: number, dark: boolean): string {
+  const mixed = mix(text, pct, base);
+  const [L, A, B] = toOklab(mixed);
+  const lb = toe(toOklab(base)[0]);
+  if ((dark ? toe(L) - lb : lb - toe(L)) >= min) return mixed;
+  const target = toeInv(Math.min(1, Math.max(0, dark ? lb + min : lb - min)));
+  const C = Math.hypot(A, B);
+  const H = Math.atan2(B, A);
+  return fromOklab([target, C * Math.cos(H), C * Math.sin(H)]);
+}
+
 /** Primary button hover: the fill a step darker, or lighter when darker would drop its text below 4.5:1. */
 function accentHover(fill: string, on: string): string {
   const darker = shiftLightness(fill, -0.035);
@@ -144,6 +182,9 @@ export function themeVariables(theme: ThemeData): Record<string, string> {
   const { primary: text, secondary, hint } = theme.text;
   const { danger, warning, success, info } = theme.status;
   const accent = theme.accent.text;
+
+  const step = MIN_STEP[theme.mode];
+  const surf = (name: string, pct: number, base: string) => surfaceMix(text, pct, base, step[name], dark);
 
   let shadowRaised: string, shadowPopup: string, scrim: string;
   if (dark) {
@@ -163,10 +204,10 @@ export function themeVariables(theme: ThemeData): Record<string, string> {
     "--bg-chrome": chrome,
     "--bg-sidebar": sidebar,
     "--bg-elevated": elevated,
-    "--bg-hover": mix(text, 6, chrome),
-    "--bg-active": mix(text, 11, chrome),
-    "--border": mix(text, 10, bg),
-    "--border-strong": mix(text, 20, bg),
+    "--bg-hover": surf("--bg-hover", 6, chrome),
+    "--bg-active": surf("--bg-active", 11, chrome),
+    "--border": surf("--border", 10, bg),
+    "--border-strong": surf("--border-strong", 20, bg),
     "--text": text,
     "--text-2": secondary,
     "--text-3": hint,
@@ -175,10 +216,10 @@ export function themeVariables(theme: ThemeData): Record<string, string> {
     "--accent-tint": mix(accent, 20, bg),
     "--accent-soft": alpha(accent, dark ? 0.22 : 0.14),
     "--selection": theme.selection || mix(accent, 30, bg),
-    "--zebra": mix(text, 3, bg),
-    "--control-fill": mix(text, 7, chrome),
-    "--control-fill-hover": mix(text, 11, chrome),
-    "--surface-raised": dark ? mix(text, 16, chrome) : elevated,
+    "--zebra": surf("--zebra", 3, bg),
+    "--control-fill": surf("--control-fill", 7, chrome),
+    "--control-fill-hover": surf("--control-fill-hover", 11, chrome),
+    "--surface-raised": dark ? surf("--surface-raised", 16, chrome) : elevated,
     "--shadow-raised": shadowRaised,
     "--danger": danger,
     "--scrim": scrim,
@@ -196,7 +237,7 @@ export function themeVariables(theme: ThemeData): Record<string, string> {
     "--danger-bg": mix(danger, 14, bg),
     "--success-bg": mix(success, 14, bg),
     "--warning-bg": mix(warning, 14, bg),
-    "--grid-line": mix(text, 7, bg),
+    "--grid-line": surf("--grid-line", 7, bg),
     "--edit-changed": mix(warning, 18, bg),
     "--edit-added": mix(success, 18, bg),
     "--edit-deleted": mix(danger, 18, bg),
