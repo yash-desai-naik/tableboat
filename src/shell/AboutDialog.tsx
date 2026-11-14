@@ -93,6 +93,9 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
         <div>
           <div className="about-name">Tableboat {info?.version ?? ""}</div>
           <div className="muted small">A small database client for MySQL, MariaDB, SQLite and MongoDB, with Claude Code built in.</div>
+          <div className="muted small">
+            Themes based on Catppuccin, Tokyo Night, GitHub Primer, One Dark, Rosé Pine, Gruvbox, Kanagawa, Nord and Dracula (MIT).
+          </div>
           <div className="about-update">
             {update.info ? (
               <>
