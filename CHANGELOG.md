@@ -6,6 +6,10 @@ All notable changes to Tableboat are listed here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Builds made by GitHub no longer say "with uncommitted changes" in the About box.
+
 ## [0.1.0] - 2026-11-14
 
 The first public release: a small, fast database client for Windows, with a command line and

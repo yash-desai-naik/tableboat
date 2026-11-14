@@ -44,7 +44,7 @@ jobs:
             Write-Error "CHANGELOG.md has no section '## [$env:VERSION]'."
             exit 1
           }
-          Set-Content -Path changelog-section.md -Value $m.Groups[1].Value.Trim() -Encoding utf8 -NoNewline
+          Set-Content -Path "$env:RUNNER_TEMP/changelog-section.md" -Value $m.Groups[1].Value.Trim() -Encoding utf8 -NoNewline
 
       - uses: actions/setup-node@v4
         with:
@@ -75,7 +75,7 @@ jobs:
           $footer = (Get-Content .github/release-footer.md -Raw).
             Replace('{version}', $env:VERSION).Replace('{file}', $file).
             Replace('{sha256}', $sha).Replace('{repo}', '${{ github.repository }}')
-          Set-Content -Path release-notes.md -Value ((Get-Content changelog-section.md -Raw) + "`n`n" + $footer) -Encoding utf8
+          Set-Content -Path release-notes.md -Value ((Get-Content "$env:RUNNER_TEMP/changelog-section.md" -Raw) + "`n`n" + $footer) -Encoding utf8
 
           # The update feed: version, notes, and the signed installer for installed copies.
           $sigPath = "src-tauri/target/release/bundle/nsis/$file.sig"
@@ -83,7 +83,7 @@ jobs:
           Copy-Item $sigPath "$file.sig"
           $feed = [ordered]@{
             version   = $env:VERSION
-            notes     = (Get-Content changelog-section.md -Raw)
+            notes     = (Get-Content "$env:RUNNER_TEMP/changelog-section.md" -Raw)
             pub_date  = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
             platforms = [ordered]@{
               "windows-x86_64" = [ordered]@{

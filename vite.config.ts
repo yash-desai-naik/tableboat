@@ -13,7 +13,7 @@ function buildInfo() {
   };
   return {
     commit: git("rev-parse --short HEAD") || "unknown",
-    dirty: git("status --porcelain") !== "",
+    dirty: git("status --porcelain --untracked-files=no") !== "",
     date: new Date().toISOString(),
   };
 }

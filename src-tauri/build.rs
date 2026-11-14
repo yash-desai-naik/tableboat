@@ -13,7 +13,7 @@ fn main() {
             .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
     };
     if let Some(commit) = git(&["rev-parse", "--short", "HEAD"]) {
-        let dirty = git(&["status", "--porcelain"]).is_some_and(|s| !s.is_empty());
+        let dirty = git(&["status", "--porcelain", "--untracked-files=no"]).is_some_and(|s| !s.is_empty());
         println!("cargo:rustc-env=TABLEBOAT_COMMIT={commit}{}", if dirty { "+" } else { "" });
     }
     println!("cargo:rerun-if-changed=../.git/HEAD");
