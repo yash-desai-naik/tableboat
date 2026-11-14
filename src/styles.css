@@ -68,6 +68,56 @@
   --scrim: rgba(0, 0, 0, 0.45);
   --shadow-popup: 0 12px 32px rgba(0, 0, 0, 0.5);
   --scrollbar: #4d4c46;
+  --scrollbar-hover: #65645e;
+
+  /* Accent as a fill (primary buttons, selected grid header, badges); --accent-text goes on it.
+     --accent itself is for text and lines (links, caret, focus, matched text). */
+  --accent-fill: #d97757;
+  --accent-hover: #de876b;
+  --focus-ring: #d97757;
+
+  /* Status. The grid reads these from JS, so keep them plain hex/rgba (no color-mix). */
+  --warning: #d29922;
+  --success: #3fa36b;
+  --info: #589ed8;
+  --on-danger: #ffffff;
+  --danger-bg: #3c2d29;
+  --success-bg: #273026;
+  --warning-bg: #3b3424;
+
+  /* Grid */
+  --grid-line: rgba(255, 255, 255, 0.07);
+  --edit-changed: #3b3218;
+  --edit-added: #183a24;
+  --edit-deleted: #43201f;
+  --search-match: #623315;
+  --search-current: #9e6a03;
+
+  /* SQL editor chrome */
+  --editor-gutter: #6e7681;
+  --editor-gutter-active: #c2c0b6;
+  --editor-current-stmt: rgba(255, 255, 255, 0.045);
+  --editor-bracket: rgba(255, 255, 255, 0.12);
+  --editor-bracket-outline: #888888;
+
+  /* Syntax (VS Code Dark+): SQL editor, Mongo documents, JSON */
+  --syn-keyword: #569cd6;
+  --syn-type: #4ec9b0;
+  --syn-function: #dcdcaa;
+  --syn-string: #ce9178;
+  --syn-number: #b5cea8;
+  --syn-literal: #569cd6;
+  --syn-property: #9cdcfe;
+  --syn-operator: #d4d4d4;
+  --syn-comment: #6a9955;
+  --syn-invalid: #f44747;
+
+  /* Object kinds: muted, warm hues that sit with the clay accent. */
+  --kind-table: #d97757;
+  --kind-view: #a593d8;
+  --kind-function: #d4a94a;
+  --kind-procedure: #8db07a;
+  --kind-trigger: #d97a95;
 }
 
 :root[data-theme="light"] {
@@ -97,6 +147,50 @@
   --scrim: rgba(20, 20, 19, 0.22);
   --shadow-popup: 0 12px 32px rgba(40, 30, 20, 0.16);
   --scrollbar: #cdc9bc;
+  --scrollbar-hover: #b3b0a4;
+
+  --accent-fill: #c96442;
+  --accent-hover: #cf7759;
+  --focus-ring: #c96442;
+
+  --warning: #d29922;
+  --success: #2e7d32;
+  --info: #0000ff;
+  --on-danger: #ffffff;
+  --danger-bg: #f2e1dd;
+  --success-bg: #e2eade;
+  --warning-bg: #f5eddc;
+
+  --grid-line: rgba(0, 0, 0, 0.07);
+  --edit-changed: #fff1cc;
+  --edit-added: #dcf5e3;
+  --edit-deleted: #fbe0e0;
+  --search-match: #f8c9ab;
+  --search-current: #f6b94d;
+
+  --editor-gutter: #9a9a9a;
+  --editor-gutter-active: #5e5d59;
+  --editor-current-stmt: rgba(0, 0, 0, 0.035);
+  --editor-bracket: rgba(0, 0, 0, 0.1);
+  --editor-bracket-outline: #b9b9b9;
+
+  /* Syntax (VS Code Light+) */
+  --syn-keyword: #0000ff;
+  --syn-type: #267f99;
+  --syn-function: #795e26;
+  --syn-string: #a31515;
+  --syn-number: #098658;
+  --syn-literal: #0000ff;
+  --syn-property: #001080;
+  --syn-operator: #1f1f1f;
+  --syn-comment: #008000;
+  --syn-invalid: #cd3131;
+
+  --kind-table: #c96442;
+  --kind-view: #6f58b0;
+  --kind-function: #8a6400;
+  --kind-procedure: #4b7a36;
+  --kind-trigger: #a8435f;
 }
 
 /* ---------- base ---------- */
