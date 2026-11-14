@@ -8,7 +8,7 @@ import { buildCommands, type Command } from "./lib/commands";
 import { publishCommands } from "./lib/agentBridge";
 import { comboFromEvent, isBrowserReserved } from "./lib/keys";
 import { disconnect, useSession } from "./lib/session";
-import { updateSettings, useSettings } from "./lib/settings";
+import { updateSettings, useSettings, type Settings } from "./lib/settings";
 import { uiActions } from "./lib/ui";
 import { resetWorkspace, useWorkspace } from "./lib/workspace";
 import { flushWorkspace, rememberLastConnection, restoreFor, trackWorkspace } from "./lib/persist";
@@ -21,6 +21,7 @@ import { DatabasePicker } from "./palette/DatabasePicker";
 import { QuickOpen } from "./palette/QuickOpen";
 import { Sidebar } from "./sidebar/Sidebar";
 import { clearSchemaCache } from "./editor/schemaCache";
+import { applyTheme, resolveTheme } from "./themes";
 
 const QueryView = lazy(() => import("./workspace/QueryView").then((m) => ({ default: m.QueryView })));
 const AiPane = lazy(() => import("./ai/AiPane").then((m) => ({ default: m.AiPane })));
@@ -125,7 +126,7 @@ export function App() {
     if (!settings.showAiPane) void stopClaude().catch(() => {});
   }, [settings.showAiPane]);
 
-  useThemeAndDensity(settings.theme, settings.density, settings.editorFontSize, settings.gridFontSize);
+  useThemeAndDensity(settings, settings.density, settings.editorFontSize, settings.gridFontSize);
   useZoom(settings.uiZoom);
   useShortcuts(commands);
   useNoBrowserContextMenu();
@@ -247,17 +248,20 @@ function CenterContent({ info, fallback }: { info: SessionInfo; fallback: ReactN
   );
 }
 
-function useThemeAndDensity(theme: string, density: string, editorFont: number, gridFont: number) {
+function useThemeAndDensity(
+  { theme, lightTheme, darkTheme }: Pick<Settings, "theme" | "lightTheme" | "darkTheme">,
+  density: string,
+  editorFont: number,
+  gridFont: number,
+) {
+  // Settings changed here, in another window, by `tb` or by Claude all arrive through the store.
   useEffect(() => {
     const media = window.matchMedia("(prefers-color-scheme: dark)");
-    const apply = () => {
-      const resolved = theme === "system" ? (media.matches ? "dark" : "light") : theme;
-      document.documentElement.dataset.theme = resolved;
-    };
+    const apply = () => applyTheme(resolveTheme({ theme, lightTheme, darkTheme }, media.matches));
     apply();
     media.addEventListener("change", apply);
     return () => media.removeEventListener("change", apply);
-  }, [theme]);
+  }, [theme, lightTheme, darkTheme]);
 
   useEffect(() => {
     const root = document.documentElement;

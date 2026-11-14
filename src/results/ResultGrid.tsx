@@ -174,10 +174,10 @@ export function ResultGrid({ info, rowCount, dialect, table, sort, onSort, versi
   const inserts = edit ? getPending(edit.tabId).inserts.length : 0;
   const totalRows = rowCount + inserts;
 
-  // Follow light/dark switches made by the system.
+  // Follow theme switches (system light/dark, another colour theme, a Settings preview).
   useEffect(() => {
     const obs = new MutationObserver(() => setThemeKey((k) => k + 1));
-    obs.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "data-density"] });
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme", "data-color-theme", "data-density"] });
     return () => obs.disconnect();
   }, []);
 

@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { App } from "./App";
 import { loadSettings } from "./lib/settings";
+import { applyTheme, resolveTheme } from "./themes";
 // JetBrains Mono, bundled: used only when it isn't installed (the installed copy comes first).
 import "@fontsource-variable/jetbrains-mono/wght.css";
 import "@fontsource-variable/jetbrains-mono/wght-italic.css";
@@ -37,8 +38,7 @@ loadSettings()
   .then((settings) => {
     // Set the theme before the first render so the window never shows the wrong colours.
     const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    document.documentElement.dataset.theme =
-      settings.theme === "system" ? (prefersDark ? "dark" : "light") : settings.theme;
+    applyTheme(resolveTheme(settings, prefersDark));
     document.documentElement.dataset.density = settings.density;
     createRoot(document.getElementById("root")!).render(<App />);
     showWhenPainted();
