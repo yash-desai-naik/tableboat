@@ -85,6 +85,32 @@ Invoke-WebRequest -UseBasicParsing "https://github.com/tauri-apps/nsis-tauri-uti
 
 (The URL and hash are the ones built into Tauri CLI 2.x at the time of writing; a newer CLI may want a newer plugin.)
 
+## Release a new version
+
+Releases are built by GitHub Actions (`.github/workflows/release.yml`), not on this PC, so every download is
+built from the public source.
+
+1. Pick the version ([Semantic Versioning](https://semver.org): `0.1.1` for fixes, `0.2.0` for new features).
+2. Set it in all three files: `"version"` in `package.json` and `src-tauri/tauri.conf.json`, and `version` in
+   `src-tauri/Cargo.toml` (then run `cargo build` once so `Cargo.lock` follows).
+3. In `CHANGELOG.md`, rename `## [Unreleased]` to `## [x.y.z] - YYYY-MM-DD`, add a fresh empty
+   `## [Unreleased]` above it, and update the links at the bottom. Write the entries for users: what they can
+   do now, under `### Added`, `### Changed`, `### Fixed`, `### Removed`.
+4. Commit, then tag and push:
+
+   ```powershell
+   git commit -am "chore: release x.y.z"
+   git tag -a vx.y.z -m "Tableboat x.y.z"
+   git push origin master vx.y.z
+   ```
+
+5. The Release workflow (about 15 minutes; Actions tab on GitHub) checks the version matches the tag in all
+   three files, builds the installer, and creates a **draft** release with the installer, `SHA256SUMS.txt`, and
+   notes made from the changelog section plus `.github/release-footer.md` (download, install, checksum).
+6. Read the draft under Releases, edit if needed, and press **Publish release**.
+
+The CI workflow (`.github/workflows/ci.yml`) type-checks, tests and builds every push and pull request.
+
 ## Measure memory and CPU
 
 ```powershell

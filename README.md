@@ -30,9 +30,16 @@ no Node.js at runtime: about 140 MB of memory with a connection open, and no CPU
 
 ## Install
 
-There are no prebuilt downloads yet; build it from source (see below). The build produces an installer that
-installs for the current user only (no admin rights) into `%LOCALAPPDATA%\Tableboat`, and puts `tb` on
-your PATH.
+Download the installer from the [latest release](https://github.com/yash-desai-naik/tableboat/releases/latest)
+(`Tableboat_<version>_x64-setup.exe`) and run it. It installs for your Windows user only (no administrator
+rights) into `%LOCALAPPDATA%\Tableboat` and puts the `tb` command on your PATH. Newer installers upgrade in
+place and keep your connections and settings.
+
+The installer isn't code-signed yet: if Windows SmartScreen says "Windows protected your PC", click
+**More info**, then **Run anyway**. Each release lists the installer's SHA-256 checksum so you can check it.
+What changed in each version: [CHANGELOG.md](CHANGELOG.md).
+
+## Build from source
 
 ### Requirements
 
@@ -42,7 +49,7 @@ your PATH.
 - Optional: [Claude Code](https://claude.com/claude-code), signed in, for the Claude pane and `tb ask`
   (it runs under your own Claude account)
 
-### Build
+### Steps
 
 ```powershell
 git clone https://github.com/yash-desai-naik/tableboat.git
@@ -55,6 +62,7 @@ To run it while developing: `npx tauri dev`. More in [docs/DEVELOPMENT.md](docs/
 
 ## Documentation
 
+- [CHANGELOG.md](CHANGELOG.md): what changed in each version
 - [docs/CLI.md](docs/CLI.md): the `tb` command line
 - [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md): building, code layout, tests
 - [docs/SCOPE.md](docs/SCOPE.md) and [docs/PLAN.md](docs/PLAN.md): what's in scope and how it's built

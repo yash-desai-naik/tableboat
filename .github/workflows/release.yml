@@ -1,0 +1,87 @@
+# Builds the Windows installer when a version tag (v1.2.3) is pushed, and creates a DRAFT
+# GitHub release with the installer, its SHA-256 checksum, and release notes taken from
+# CHANGELOG.md. Review the draft on GitHub, then publish it.
+name: Release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the tag matches the version in every file
+        shell: pwsh
+        run: |
+          $v = "${{ github.ref_name }}".TrimStart('v')
+          $conf = (Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
+          $pkg = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $cargo = (Select-String -Path src-tauri/Cargo.toml -Pattern '^version = "(.+)"' | Select-Object -First 1).Matches[0].Groups[1].Value
+          if ($conf -ne $v -or $pkg -ne $v -or $cargo -ne $v) {
+            Write-Error "Tag v$v, but tauri.conf.json says $conf, package.json $pkg, Cargo.toml $cargo."
+            exit 1
+          }
+          "VERSION=$v" >> $env:GITHUB_ENV
+
+      - name: Take the release notes from CHANGELOG.md
+        shell: pwsh
+        run: |
+          $text = (Get-Content CHANGELOG.md -Raw) -replace "`r`n", "`n"
+          $m = [regex]::Match($text, "(?ms)^## \[$([regex]::Escape($env:VERSION))\][^\n]*\n(.*?)(?=^## \[|^\[[^\]]+\]: |\z)")
+          if (-not $m.Success -or -not $m.Groups[1].Value.Trim()) {
+            Write-Error "CHANGELOG.md has no section '## [$env:VERSION]'."
+            exit 1
+          }
+          Set-Content -Encoding utf8 -NoNewline changelog-section.md $m.Groups[1].Value.Trim()
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: npm ci
+
+      - name: Build the app, tb and the installer
+        run: npx tauri build
+
+      - name: Checksum and release notes
+        shell: pwsh
+        run: |
+          $file = "Tableboat_$($env:VERSION)_x64-setup.exe"
+          Copy-Item "src-tauri/target/release/bundle/nsis/$file" $file
+          $sha = (Get-FileHash $file -Algorithm SHA256).Hash.ToLower()
+          "$sha  $file" | Set-Content -Encoding ascii SHA256SUMS.txt
+          $footer = (Get-Content .github/release-footer.md -Raw).
+            Replace('{version}', $env:VERSION).Replace('{file}', $file).
+            Replace('{sha256}', $sha).Replace('{repo}', '${{ github.repository }}')
+          (Get-Content changelog-section.md -Raw) + "`n`n" + $footer | Set-Content -Encoding utf8 release-notes.md
+          "FILE=$file" >> $env:GITHUB_ENV
+
+      - name: Create the draft release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "${{ github.ref_name }}"
+          gh release view $tag 2>$null | Out-Null
+          if ($LASTEXITCODE -eq 0) {
+            # Re-run of the same tag: replace the files and notes.
+            gh release upload $tag $env:FILE SHA256SUMS.txt --clobber
+            gh release edit $tag --notes-file release-notes.md
+          } else {
+            gh release create $tag $env:FILE SHA256SUMS.txt --draft --verify-tag `
+              --title "Tableboat $env:VERSION" --notes-file release-notes.md
+          }
