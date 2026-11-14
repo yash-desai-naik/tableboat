@@ -8,3 +8,4 @@ pub mod mcp;
 mod mcp_app;
 pub mod paths;
 pub mod prefs;
+pub mod themes;
