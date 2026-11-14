@@ -6,6 +6,25 @@ All notable changes to Tableboat are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **19 colour themes.** Besides Tableboat Light and Dark: Catppuccin Latte and Mocha, Tokyo Night,
+  GitHub Light and Dark, One Light and One Dark, Rosé Pine and Rosé Pine Dawn, Gruvbox Light and
+  Dark, Kanagawa Wave and Lotus, Nord, Dracula, and High Contrast Light and Dark.
+- Pick a light theme and a dark theme in **Settings → Appearance**; "Match Windows" switches
+  between them. Cards show each theme in miniature and preview it on the window as you hover.
+- Every theme is in the command palette ("Theme: Catppuccin Mocha", "Theme: Next Theme"), and
+  `lightTheme` / `darkTheme` work from `tb settings` and Claude.
+- Every theme passes contrast rules (text 7:1, hints, links, status and syntax colours 4.5:1),
+  checked by a test on every build; faint palette colours are nudged just enough to pass.
+
+### Changed
+
+- Tableboat themes: hint text is easier to read, and primary buttons use a deeper clay so their
+  white text is readable. The red close button and error badges use a darker red in dark mode.
+- The whole interface, including the SQL editor, grid, document view and Claude pane, now takes
+  every colour from the theme.
+
 ## [0.2.0] - 2026-11-14
 
 ### Added

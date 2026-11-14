@@ -27,7 +27,7 @@ no Node.js at runtime: about 140 MB of memory with a connection open, and no CPU
 - **`tb` command line:** everything above from a terminal: `tb query`, `tb export`, `tb dump`, `tb ask` and
   more. See [docs/CLI.md](docs/CLI.md).
 - **Updates:** Tableboat tells you when a new version is out and installs it for you (signed and verified).
-- Several windows, tabs restored per connection, light and dark themes, three densities, command palette.
+- Several windows, tabs restored per connection, 19 colour themes (Catppuccin, Tokyo Night, GitHub, One Dark, Rosé Pine, Gruvbox, Kanagawa, Nord, Dracula, High Contrast), three densities, command palette.
 
 ## Install
 
@@ -73,6 +73,12 @@ To run it while developing: `npx tauri dev`. More in [docs/DEVELOPMENT.md](docs/
 
 Issues and pull requests are welcome. Please keep the project's budget in mind: low memory, no idle CPU,
 and no Node.js at runtime.
+
+## Credits
+
+Theme palettes are based on Catppuccin, Tokyo Night, GitHub Primer, One Dark/One Light, Rosé Pine,
+Gruvbox, Kanagawa, Nord and Dracula, all MIT-licensed. Only their colour values are used, some nudged
+for contrast (see [docs/THEMES.md](docs/THEMES.md)).
 
 ## License
 
