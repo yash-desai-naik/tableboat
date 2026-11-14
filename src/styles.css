@@ -52,8 +52,8 @@
   --border-strong: #4a4943;
   --text: #f5f4ee;
   --text-2: #c2c0b6;
-  --text-3: #8f8d85;
-  --accent: #d97757;
+  --text-3: #9a9890;
+  --accent: #e07d5d;
   --accent-text: #ffffff;
   --accent-tint: #4a3329;
   --accent-soft: rgba(217, 119, 87, 0.22);
@@ -64,7 +64,7 @@
   --control-fill-hover: #3d3c38;
   --surface-raised: #45443f;
   --shadow-raised: 0 1px 2px rgba(0, 0, 0, 0.35);
-  --danger: #e0614f;
+  --danger: #f2715e;
   --scrim: rgba(0, 0, 0, 0.45);
   --shadow-popup: 0 12px 32px rgba(0, 0, 0, 0.5);
   --scrollbar: #4d4c46;
@@ -72,16 +72,16 @@
 
   /* Accent as a fill (primary buttons, selected grid header, badges); --accent-text goes on it.
      --accent itself is for text and lines (links, caret, focus, matched text). */
-  --accent-fill: #d97757;
-  --accent-hover: #de876b;
-  --focus-ring: #d97757;
+  --accent-fill: #b95a3b;
+  --accent-hover: #aa5336;
+  --focus-ring: #e07d5d;
 
   /* Status. The grid reads these from JS, so keep them plain hex/rgba (no color-mix). */
   --warning: #d29922;
-  --success: #3fa36b;
+  --success: #46a971;
   --info: #589ed8;
-  --on-danger: #ffffff;
-  --danger-bg: #3c2d29;
+  --on-danger: #000000; /* white is 2.9:1 on this red, black 7.3:1 */
+  --danger-bg: #3e2f2b;
   --success-bg: #273026;
   --warning-bg: #3b3424;
 
@@ -113,7 +113,7 @@
   --syn-invalid: #f44747;
 
   /* Object kinds: muted, warm hues that sit with the clay accent. */
-  --kind-table: #d97757;
+  --kind-table: #e07d5d;
   --kind-view: #a593d8;
   --kind-function: #d4a94a;
   --kind-procedure: #8db07a;
@@ -132,8 +132,8 @@
   --border-strong: #d3cfc2;
   --text: #141413;
   --text-2: #5e5d59;
-  --text-3: #8d8b83;
-  --accent: #c96442;
+  --text-3: #6d6b63;
+  --accent: #b85533;
   --accent-text: #ffffff;
   --accent-tint: #f3e3da;
   --accent-soft: rgba(201, 100, 66, 0.14);
@@ -149,17 +149,17 @@
   --scrollbar: #cdc9bc;
   --scrollbar-hover: #b3b0a4;
 
-  --accent-fill: #c96442;
-  --accent-hover: #cf7759;
-  --focus-ring: #c96442;
+  --accent-fill: #bd5937;
+  --accent-hover: #af5334;
+  --focus-ring: #b85533;
 
-  --warning: #d29922;
+  --warning: #8a6400;
   --success: #2e7d32;
   --info: #0000ff;
   --on-danger: #ffffff;
   --danger-bg: #f2e1dd;
   --success-bg: #e2eade;
-  --warning-bg: #f5eddc;
+  --warning-bg: #ede7d8;
 
   --grid-line: rgba(0, 0, 0, 0.07);
   --edit-changed: #fff1cc;
@@ -176,17 +176,17 @@
 
   /* Syntax (VS Code Light+) */
   --syn-keyword: #0000ff;
-  --syn-type: #267f99;
+  --syn-type: #227c96;
   --syn-function: #795e26;
   --syn-string: #a31515;
-  --syn-number: #098658;
+  --syn-number: #008355;
   --syn-literal: #0000ff;
   --syn-property: #001080;
   --syn-operator: #1f1f1f;
   --syn-comment: #008000;
   --syn-invalid: #cd3131;
 
-  --kind-table: #c96442;
+  --kind-table: #b85533;
   --kind-view: #6f58b0;
   --kind-function: #8a6400;
   --kind-procedure: #4b7a36;
