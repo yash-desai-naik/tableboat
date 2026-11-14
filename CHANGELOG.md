@@ -6,6 +6,8 @@ All notable changes to Tableboat are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-14
+
 ### Added
 
 - **Claude can do what you can do in the app.** In the Claude pane it can now:
@@ -87,5 +89,6 @@ Claude Code built in.
 - Light and dark themes, three densities, zoom, a command palette, and an About box with the
   version, build and data folders.
 
-[Unreleased]: https://github.com/yash-desai-naik/tableboat/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/yash-desai-naik/tableboat/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/yash-desai-naik/tableboat/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/yash-desai-naik/tableboat/releases/tag/v0.1.0
