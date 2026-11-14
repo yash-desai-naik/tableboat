@@ -8,6 +8,10 @@ export type Density = "compact" | "default" | "comfortable";
 /** Mirrors `Settings` in src-tauri/src/settings.rs. */
 export interface Settings {
   theme: Theme;
+  /** Theme id (src/themes/themes.json) used when the mode is light. */
+  lightTheme: string;
+  /** Theme id used when the mode is dark. */
+  darkTheme: string;
   density: Density;
   uiZoom: number;
   editorFontSize: number;
