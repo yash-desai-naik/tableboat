@@ -39,7 +39,7 @@ jobs:
             Write-Error "CHANGELOG.md has no section '## [$env:VERSION]'."
             exit 1
           }
-          Set-Content -Encoding utf8 -NoNewline changelog-section.md $m.Groups[1].Value.Trim()
+          Set-Content -Path changelog-section.md -Value $m.Groups[1].Value.Trim() -Encoding utf8 -NoNewline
 
       - uses: actions/setup-node@v4
         with:
@@ -63,11 +63,11 @@ jobs:
           $file = "Tableboat_$($env:VERSION)_x64-setup.exe"
           Copy-Item "src-tauri/target/release/bundle/nsis/$file" $file
           $sha = (Get-FileHash $file -Algorithm SHA256).Hash.ToLower()
-          "$sha  $file" | Set-Content -Encoding ascii SHA256SUMS.txt
+          Set-Content -Path SHA256SUMS.txt -Value "$sha  $file" -Encoding ascii
           $footer = (Get-Content .github/release-footer.md -Raw).
             Replace('{version}', $env:VERSION).Replace('{file}', $file).
             Replace('{sha256}', $sha).Replace('{repo}', '${{ github.repository }}')
-          (Get-Content changelog-section.md -Raw) + "`n`n" + $footer | Set-Content -Encoding utf8 release-notes.md
+          Set-Content -Path release-notes.md -Value ((Get-Content changelog-section.md -Raw) + "`n`n" + $footer) -Encoding utf8
           "FILE=$file" >> $env:GITHUB_ENV
 
       - name: Create the draft release
