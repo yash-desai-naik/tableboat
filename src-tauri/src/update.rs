@@ -54,14 +54,19 @@ async fn check(app: &AppHandle) -> Result<Option<UpdateInfo>, String> {
     Ok(out)
 }
 
-/// "Check for updates" (About box, command palette): always reports the result.
-#[tauri::command]
-pub async fn update_check(app: AppHandle) -> Result<Option<UpdateInfo>, String> {
-    let found = check(&app).await?;
+/// Check now and, if there's an update, show the notice in every window.
+pub async fn check_and_announce(app: &AppHandle) -> Result<Option<UpdateInfo>, String> {
+    let found = check(app).await?;
     if let Some(i) = &found {
         let _ = app.emit("update:available", i.clone());
     }
     Ok(found)
+}
+
+/// "Check for updates" (About box, command palette): always reports the result.
+#[tauri::command]
+pub async fn update_check(app: AppHandle) -> Result<Option<UpdateInfo>, String> {
+    check_and_announce(&app).await
 }
 
 /// The update found earlier, if any (a window opened later asks this).

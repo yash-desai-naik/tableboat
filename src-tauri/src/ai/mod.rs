@@ -73,11 +73,18 @@ pub struct ClaudeHub {
     pub mcp: Mutex<Option<tableboat_core::mcp::McpServer>>,
     /// Permission questions waiting for the user: id → answer channel.
     pub approvals: Mutex<HashMap<String, std::sync::mpsc::Sender<(bool, bool)>>>,
+    /// Claude's UI actions waiting for the window to do them: id → result channel.
+    pub ui_calls: Mutex<HashMap<String, std::sync::mpsc::Sender<Result<serde_json::Value, String>>>>,
 }
 
 impl Default for ClaudeHub {
     fn default() -> Self {
-        Self { windows: Mutex::new(HashMap::new()), mcp: Mutex::new(None), approvals: Mutex::new(HashMap::new()) }
+        Self {
+            windows: Mutex::new(HashMap::new()),
+            mcp: Mutex::new(None),
+            approvals: Mutex::new(HashMap::new()),
+            ui_calls: Mutex::new(HashMap::new()),
+        }
     }
 }
 
@@ -360,6 +367,14 @@ pub fn claude_set_context(app: AppHandle, window: tauri::Window, hub: tauri::Sta
 pub fn claude_permission_reply(hub: tauri::State<'_, ClaudeHub>, id: String, allow: bool, always: bool) {
     if let Some(tx) = hub.approvals.lock().unwrap().remove(&id) {
         let _ = tx.send((allow, always));
+    }
+}
+
+/// The window's answer to one of Claude's UI actions (see `host::GuiHost::ui`).
+#[tauri::command]
+pub fn ui_reply(hub: tauri::State<'_, ClaudeHub>, id: String, ok: bool, value: Option<serde_json::Value>, error: Option<String>) {
+    if let Some(tx) = hub.ui_calls.lock().unwrap().remove(&id) {
+        let _ = tx.send(if ok { Ok(value.unwrap_or(serde_json::Value::Null)) } else { Err(error.unwrap_or_else(|| "The window couldn't do that.".into())) });
     }
 }
 

@@ -55,7 +55,34 @@ pub trait Host: Send + Sync {
     /// Where files given with a relative name are written (the app: Downloads; `tb`: the
     /// current folder).
     fn files_dir(&self) -> PathBuf;
+
+    /// Ask GitHub whether a newer Tableboat is out (the app shows its update notice too).
+    fn check_update(&self) -> Result<UpdateCheck, String> {
+        Err(NO_UPDATES_HERE.into())
+    }
+    /// Install the update found by `check_update` (the app closes, installs and reopens).
+    fn start_update_install(&self) -> Result<(), String> {
+        Err(NO_UPDATES_HERE.into())
+    }
+    /// Ask the window to do something in its UI (open a tab, run a palette command…) and
+    /// return its answer. Only the app has a window.
+    fn ui(&self, _action: &str, _args: Value) -> Result<Value, String> {
+        Err(NO_WINDOW.into())
+    }
 }
+
+const NO_WINDOW: &str = "That needs a Tableboat window (it works in the app's Claude pane, not in `tb ask`).";
+
+/// The result of an update check.
+pub struct UpdateCheck {
+    /// The version running now.
+    pub current: String,
+    /// A newer version and its release notes (Markdown), if there is one.
+    pub available: Option<(String, String)>,
+}
+
+const NO_UPDATES_HERE: &str =
+    "Updates are checked and installed by the Tableboat app (About > Check for updates); `tb` is updated together with it.";
 
 /// Finds the host for a request's route (`/mcp/<route>`).
 pub type Resolver = Arc<dyn Fn(&str) -> Option<Arc<dyn Host>> + Send + Sync>;
@@ -207,8 +234,11 @@ fn tool_list() -> Value {
         },
         {
             "name": "execute_sql",
-            "description": "Run SQL that may change data or schema. The user is always asked to approve it first. Prefer showing SQL in a ```sql block instead, so the user can run it themselves.",
-            "inputSchema": { "type": "object", "properties": { "sql": { "type": "string" } }, "required": ["sql"] }
+            "description": "Run SQL that may change data or schema, on the window's connection: one statement or a whole script (MongoDB: mongosh statements). Stops at the first error. The user is always asked to approve it first. Prefer showing SQL in a ```sql block instead, so the user can run it themselves.",
+            "inputSchema": { "type": "object", "properties": {
+                "sql": { "type": "string" },
+                "database": { "type": "string", "description": "Database to run in; default: the window's current one" }
+            }, "required": ["sql"] }
         },
         {
             "name": "approve",
@@ -242,7 +272,7 @@ pub fn display_name(c: &crate::conn::model::Connection) -> String {
 /// The session a read tool should use, and the database to default to: the window's own, or,
 /// with `connection`, another saved connection the user @-mentioned in this chat (opened on
 /// first use, read-only by the tools that use it).
-fn target_session(host: &dyn Host, args: &Value) -> Result<(SessionHandle, Option<String>), String> {
+pub(crate) fn target_session(host: &dyn Host, args: &Value) -> Result<(SessionHandle, Option<String>), String> {
     let wanted = args.get("connection").and_then(Value::as_str).map(str::trim).filter(|s| !s.is_empty());
     let ctx = host.context();
     let Some(wanted) = wanted else {
@@ -419,13 +449,34 @@ fn call_tool(host: &dyn Host, name: &str, args: &Value) -> Result<String, String
             let (session, ctx) = session_for(host)?;
             // Models sometimes call it `query`: accept both.
             let sql = args.get("sql").or_else(|| args.get("query")).and_then(Value::as_str).ok_or("`sql` is required.")?;
+            let dialect = match session.backend {
+                Backend::Mysql(_) => db::split::Dialect::Mysql,
+                Backend::Sqlite(_) => db::split::Dialect::Sqlite,
+                Backend::Mongo(_) => db::split::Dialect::Mongo,
+            };
+            // A whole script is fine: statements, DELIMITER blocks, procedure bodies.
+            let statements = db::split::split(sql, dialect);
+            if statements.is_empty() {
+                return Err("Empty SQL.".into());
+            }
+            let database = match session.backend {
+                Backend::Mysql(_) | Backend::Mongo(_) => {
+                    args.get("database").and_then(Value::as_str).map(str::to_string).or(ctx.database.clone())
+                }
+                Backend::Sqlite(_) => None,
+            };
             // Tableboat asks the user itself, so this holds even if Claude Code's own permission
             // settings (auto mode, allow rules) would let the call through without a prompt.
-            if !host.ask("mcp__tableboat__execute_sql", json!({ "sql": sql }))? {
+            let mut shown = json!({ "sql": sql });
+            if let Some(d) = &database {
+                shown["database"] = json!(d);
+            }
+            if !host.ask("mcp__tableboat__execute_sql", shown)? {
                 return Err("The user denied running this SQL in Tableboat.".into());
             }
-            let database = if matches!(session.backend, Backend::Mysql(_) | Backend::Mongo(_)) { ctx.database.clone() } else { None };
-            let outcomes = run(host, &session, vec![sql.to_string()], database, 200)?;
+            let opts = db::query::RunOptions { database, max_rows: 200, use_pool: true, stop_on_error: true };
+            let id = uuid::Uuid::new_v4().to_string();
+            let outcomes = rt.block_on(db::query::run(&session, host.runs(), &id, statements, opts))?;
             Ok(describe(outcomes))
         }
         other => crate::mcp_app::call(host, other, args).unwrap_or_else(|| Err(format!("Unknown tool {other}"))),

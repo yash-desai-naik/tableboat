@@ -161,6 +161,7 @@ fn main() {
             ai::claude_stop,
             ai::claude_new,
             ai::claude_permission_reply,
+            ai::ui_reply,
             ai::claude_sessions,
             ai::claude_session_messages,
             ai::claude_set_context,

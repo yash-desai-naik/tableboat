@@ -6,7 +6,7 @@
 use crate::conn::model::{Connection, Engine, Secrets, SslMode};
 use crate::conn::{ops, secrets, url};
 use crate::db::{self, export};
-use crate::mcp::{Host, clip, open_saved};
+use crate::mcp::{Host, clip, open_saved, session_for, target_session};
 use crate::prefs;
 use serde_json::{Value, json};
 use std::path::PathBuf;
@@ -108,6 +108,85 @@ pub fn tool_list() -> Vec<Value> {
             }, "required": ["file"] }
         }),
         json!({
+            "name": "duplicate_connection",
+            "description": "Copy a saved connection (with its saved passwords) as \"<name> copy\". The user is asked first.",
+            "inputSchema": { "type": "object", "properties": { "connection": conn_arg }, "required": ["connection"] }
+        }),
+        json!({
+            "name": "list_databases",
+            "description": "The databases (schemas) on the window's connection, or on a connection the user added to this chat.",
+            "inputSchema": { "type": "object", "properties": {
+                "connection": { "type": "string", "description": "A connection the user added to the chat; default: the window's own" }
+            } }
+        }),
+        json!({
+            "name": "list_objects",
+            "description": "Tables, views, functions, procedures and triggers in a database (MongoDB: collections and views), with estimated row counts where the server keeps them.",
+            "inputSchema": { "type": "object", "properties": {
+                "connection": { "type": "string", "description": "A connection the user added to the chat; default: the window's own" },
+                "database": { "type": "string", "description": "Default: the current one" },
+                "kind": { "type": "string", "enum": ["table", "view", "function", "procedure", "trigger"] }
+            } }
+        }),
+        json!({
+            "name": "get_definition",
+            "description": "The CREATE statement of a table, view, function, procedure or trigger (MongoDB: a collection's options, validator and indexes).",
+            "inputSchema": { "type": "object", "properties": {
+                "name": { "type": "string" },
+                "kind": { "type": "string", "enum": ["table", "view", "function", "procedure", "trigger"], "description": "Default: found by name" },
+                "connection": { "type": "string", "description": "A connection the user added to the chat; default: the window's own" },
+                "database": { "type": "string" }
+            }, "required": ["name"] }
+        }),
+        json!({
+            "name": "get_app_state",
+            "description": "What the Tableboat window shows right now: its connection and database, the open tabs (tables, SQL editors) and which is active, unsaved table edits, and the last results in the active tab.",
+            "inputSchema": { "type": "object", "properties": {} }
+        }),
+        json!({
+            "name": "list_app_commands",
+            "description": "Every command the window can run now (the command palette): themes, density, zoom, tabs, run/format/cancel SQL, refresh, save/discard/preview table edits, add/duplicate/delete rows, disconnect, settings, panes... with their ids and on/off state.",
+            "inputSchema": { "type": "object", "properties": {} }
+        }),
+        json!({
+            "name": "run_app_command",
+            "description": "Run one command from list_app_commands, as if the user picked it in the command palette. Commands that can change data or lose work (running SQL, saving or discarding edits, closing tabs, disconnecting...) ask the user first.",
+            "inputSchema": { "type": "object", "properties": { "id": { "type": "string" } }, "required": ["id"] }
+        }),
+        json!({
+            "name": "open_object",
+            "description": "Open a table, view, collection, function, procedure or trigger in a tab of the window (data, or the definition for routines), as a click in the sidebar does.",
+            "inputSchema": { "type": "object", "properties": {
+                "name": { "type": "string" },
+                "database": { "type": "string", "description": "Default: the window's current database" },
+                "kind": { "type": "string", "enum": ["table", "view", "function", "procedure", "trigger"] }
+            }, "required": ["name"] }
+        }),
+        json!({
+            "name": "open_sql",
+            "description": "Put SQL (or mongosh) into the window's editor: a new SQL tab (default) or inserted into the active editor at the cursor. With run: true it runs there too, showing the results in the window (the user is asked first).",
+            "inputSchema": { "type": "object", "properties": {
+                "sql": { "type": "string" },
+                "mode": { "type": "string", "enum": ["new_tab", "insert"], "default": "new_tab" },
+                "run": { "type": "boolean", "default": false }
+            }, "required": ["sql"] }
+        }),
+        json!({
+            "name": "use_database",
+            "description": "Switch the window to another database on its connection (the sidebar and new queries follow).",
+            "inputSchema": { "type": "object", "properties": { "database": { "type": "string" } }, "required": ["database"] }
+        }),
+        json!({
+            "name": "check_for_updates",
+            "description": "Ask GitHub whether a newer version of Tableboat is out: the version running now, the newest one and its release notes. If there is one, the app also shows its update notice.",
+            "inputSchema": { "type": "object", "properties": {} }
+        }),
+        json!({
+            "name": "install_update",
+            "description": "Install the newer Tableboat version found by check_for_updates: Tableboat saves its tabs, closes, installs and opens again (this chat stops; it can be continued from History). The user is asked first.",
+            "inputSchema": { "type": "object", "properties": {} }
+        }),
+        json!({
             "name": "open_connection",
             "description": "Open a saved connection in a new Tableboat window.",
             "inputSchema": { "type": "object", "properties": { "connection": conn_arg }, "required": ["connection"] }
@@ -129,6 +208,18 @@ pub fn call(host: &dyn Host, name: &str, args: &Value) -> Option<Result<String, 
         "export_data" => export_data(host, args),
         "dump_database" => dump_database(host, args),
         "open_connection" => open_connection(host, args),
+        "check_for_updates" => check_for_updates(host),
+        "duplicate_connection" => duplicate_connection(host, args),
+        "list_databases" => list_databases(host, args),
+        "list_objects" => list_objects(host, args),
+        "get_definition" => get_definition(host, args),
+        "get_app_state" => host.ui("state", json!({})).map(|v| serde_json::to_string_pretty(&v).unwrap_or_default()),
+        "list_app_commands" => list_app_commands(host),
+        "run_app_command" => run_app_command(host, args),
+        "open_object" => open_object(host, args),
+        "open_sql" => open_sql(host, args),
+        "use_database" => use_database(host, args),
+        "install_update" => install_update(host),
         _ => return None,
     })
 }
@@ -710,6 +801,222 @@ fn open_connection(host: &dyn Host, args: &Value) -> Result<String, String> {
     host.open_in_app(&conn.id)
 }
 
+fn duplicate_connection(host: &dyn Host, args: &Value) -> Result<String, String> {
+    let conn = find(host, required(args, "connection")?)?;
+    let has = secrets::get(&conn.id, secrets::PASSWORD).ok().flatten().is_some();
+    confirm(
+        host,
+        "duplicate_connection",
+        "Copy this connection?",
+        format!(
+            "\"{}\": {}\nThe copy is named \"{} copy\" and keeps the saved passwords.",
+            conn.display_name(),
+            describe_connection(&conn, has),
+            conn.display_name()
+        ),
+    )?;
+    let copy = ops::duplicate(host.connections(), &conn.id)?;
+    host.connections_changed();
+    Ok(format!("Saved \"{}\".", copy.connection.display_name()))
+}
+
+// ---------- schema browsing ----------
+
+fn kind_arg(args: &Value) -> Result<Option<db::meta::ObjectKind>, String> {
+    match str_arg(args, "kind").map(str::trim).filter(|s| !s.is_empty()) {
+        None => Ok(None),
+        Some(k) => serde_json::from_value(json!(k.to_ascii_lowercase()))
+            .map(Some)
+            .map_err(|_| "kind is one of table, view, function, procedure, trigger.".to_string()),
+    }
+}
+
+fn kind_name(k: db::meta::ObjectKind) -> &'static str {
+    match k {
+        db::meta::ObjectKind::Table => "table",
+        db::meta::ObjectKind::View => "view",
+        db::meta::ObjectKind::Function => "function",
+        db::meta::ObjectKind::Procedure => "procedure",
+        db::meta::ObjectKind::Trigger => "trigger",
+    }
+}
+
+/// The database a schema tool works in: the one asked for, else the default.
+fn database_or(args: &Value, default_db: Option<String>, session: &db::SessionHandle, host: &dyn Host) -> Result<String, String> {
+    if let Some(d) = str_arg(args, "database").map(str::trim).filter(|s| !s.is_empty()) {
+        return Ok(d.to_string());
+    }
+    default_db.ok_or_else(|| {
+        let list = host.runtime().block_on(db::meta::databases(session, false)).unwrap_or_default();
+        format!("No database selected; pass `database`. Databases: {}", list.join(", "))
+    })
+}
+
+fn list_databases(host: &dyn Host, args: &Value) -> Result<String, String> {
+    let (session, current) = target_session(host, args)?;
+    let list = host.runtime().block_on(db::meta::databases(&session, true))?;
+    let lines: String = list
+        .iter()
+        .map(|d| format!("- {d}{}\n", if current.as_deref() == Some(d.as_str()) { " (current)" } else { "" }))
+        .collect();
+    Ok(format!("{} database{}:\n{lines}", list.len(), if list.len() == 1 { "" } else { "s" }))
+}
+
+fn list_objects(host: &dyn Host, args: &Value) -> Result<String, String> {
+    let (session, default_db) = target_session(host, args)?;
+    let database = database_or(args, default_db, &session, host)?;
+    let kind = kind_arg(args)?;
+    let objects = host.runtime().block_on(db::meta::objects(&session, &database, true))?;
+    let shown: Vec<_> = objects.iter().filter(|o| kind.is_none_or(|k| o.kind == k)).collect();
+    let mut out = format!("{database}: {} object{}\n", shown.len(), if shown.len() == 1 { "" } else { "s" });
+    for o in shown {
+        let rows = o.rows.map(|r| format!(", ~{r} rows")).unwrap_or_default();
+        let parent = o.parent.as_deref().map(|p| format!(", on {p}")).unwrap_or_default();
+        out.push_str(&format!("- {} ({}{rows}{parent})\n", o.name, kind_name(o.kind)));
+    }
+    Ok(clip(&out, 60_000))
+}
+
+/// An object by name (exact, else ignoring case), optionally of one kind.
+fn find_object(
+    host: &dyn Host,
+    session: &db::SessionHandle,
+    database: &str,
+    name: &str,
+    kind: Option<db::meta::ObjectKind>,
+) -> Result<db::meta::DbObject, String> {
+    let objects = host.runtime().block_on(db::meta::objects(session, database, false))?;
+    let fits = |o: &&db::meta::DbObject| kind.is_none_or(|k| o.kind == k);
+    objects
+        .iter()
+        .filter(fits)
+        .find(|o| o.name == name)
+        .or_else(|| objects.iter().filter(fits).find(|o| o.name.eq_ignore_ascii_case(name)))
+        .cloned()
+        .ok_or_else(|| format!("There's no {} named \"{name}\" in {database} (see list_objects).", kind.map(kind_name).unwrap_or("object")))
+}
+
+fn get_definition(host: &dyn Host, args: &Value) -> Result<String, String> {
+    let (session, default_db) = target_session(host, args)?;
+    let database = database_or(args, default_db, &session, host)?;
+    let obj = find_object(host, &session, &database, required(args, "name")?, kind_arg(args)?)?;
+    let ddl = host.runtime().block_on(db::meta::ddl(&session, &database, obj.kind, &obj.name))?;
+    Ok(format!("{} {database}.{}:\n```sql\n{}\n```", kind_name(obj.kind), obj.name, clip(ddl.trim(), 60_000)))
+}
+
+// ---------- the window's UI ----------
+
+/// Palette commands that only change the view (they run without asking). Anything else
+/// (running SQL, saving or discarding edits, closing tabs, disconnecting...) asks first.
+const SAFE_COMMANDS: &[&str] = &[
+    "theme.", "density.", "view.zoom", "view.refresh", "tab.next", "tab.previous", "tab.goto", "tab.keep", "sidebar.",
+    "table.reload", "query.new", "query.format", "query.focus", "query.cancel", "query.stopOnError", "results.", "help.",
+    "settings.", "go.", "palette.", "connection.copyUrl",
+];
+
+fn list_app_commands(host: &dyn Host) -> Result<String, String> {
+    let cmds = host.ui("commands", json!({}))?;
+    let list = cmds.as_array().cloned().unwrap_or_default();
+    let mut out = format!("{} commands (run one with run_app_command):\n", list.len());
+    for c in &list {
+        let text = |k: &str| c.get(k).and_then(Value::as_str).unwrap_or("").to_string();
+        let on = match c.get("checked").and_then(Value::as_bool) {
+            Some(true) => " [on]",
+            Some(false) => " [off]",
+            None => "",
+        };
+        let keys = c.get("keys").and_then(Value::as_str).map(|k| format!(" ({k})")).unwrap_or_default();
+        out.push_str(&format!("- {}: {} > {}{on}{keys}\n", text("id"), text("category"), text("title")));
+    }
+    Ok(out)
+}
+
+fn run_app_command(host: &dyn Host, args: &Value) -> Result<String, String> {
+    let id = required(args, "id")?;
+    let cmds = host.ui("commands", json!({}))?;
+    let cmd = cmds
+        .as_array()
+        .and_then(|l| l.iter().find(|c| c.get("id").and_then(Value::as_str) == Some(id)).cloned())
+        .ok_or_else(|| format!("There's no command \"{id}\" right now (see list_app_commands)."))?;
+    let title = format!(
+        "{} > {}",
+        cmd.get("category").and_then(Value::as_str).unwrap_or(""),
+        cmd.get("title").and_then(Value::as_str).unwrap_or(id)
+    );
+    if !SAFE_COMMANDS.iter().any(|p| id.starts_with(p)) {
+        confirm(host, "run_app_command", "Run this command in Tableboat?", title.clone())?;
+    }
+    host.ui("run", json!({ "id": id }))?;
+    Ok(format!("Done: {title}."))
+}
+
+fn open_object(host: &dyn Host, args: &Value) -> Result<String, String> {
+    let (session, ctx) = session_for(host)?;
+    let database = database_or(args, ctx.database, &session, host)?;
+    let obj = find_object(host, &session, &database, required(args, "name")?, kind_arg(args)?)?;
+    host.ui("open_object", json!({ "database": database, "name": obj.name, "kind": kind_name(obj.kind) }))?;
+    Ok(format!("Opened {} {database}.{} in a tab.", kind_name(obj.kind), obj.name))
+}
+
+fn open_sql(host: &dyn Host, args: &Value) -> Result<String, String> {
+    let sql = str_arg(args, "sql").filter(|s| !s.trim().is_empty()).ok_or("`sql` is required.")?;
+    let insert = str_arg(args, "mode") == Some("insert");
+    let run = args.get("run").and_then(Value::as_bool).unwrap_or(false);
+    if run && !host.ask("mcp__tableboat__execute_sql", json!({ "sql": sql }))? {
+        // The same question as execute_sql: running it does whatever the SQL does.
+        return Err("The user denied running this SQL in Tableboat.".into());
+    }
+    host.ui("open_sql", json!({ "sql": sql, "mode": if insert { "insert" } else { "new_tab" }, "run": run }))?;
+    Ok(match (insert, run) {
+        (true, false) => "Inserted into the active editor.".into(),
+        (_, false) => "Opened in a new SQL tab.".into(),
+        (_, true) => "Opened in a new SQL tab and started; the results show in the window (get_app_state reads them).".into(),
+    })
+}
+
+fn use_database(host: &dyn Host, args: &Value) -> Result<String, String> {
+    let (session, _) = session_for(host)?;
+    let wanted = required(args, "database")?;
+    let list = host.runtime().block_on(db::meta::databases(&session, false))?;
+    let db = list
+        .iter()
+        .find(|d| d.as_str() == wanted)
+        .or_else(|| list.iter().find(|d| d.eq_ignore_ascii_case(wanted)))
+        .ok_or_else(|| format!("There's no database \"{wanted}\". Databases: {}", list.join(", ")))?;
+    host.ui("use_database", json!({ "database": db }))?;
+    Ok(format!("The window now uses {db}."))
+}
+
+fn check_for_updates(host: &dyn Host) -> Result<String, String> {
+    let c = host.check_update()?;
+    Ok(match c.available {
+        None => format!("Tableboat {} is the latest version.", c.current),
+        Some((version, notes)) => format!(
+            "Tableboat {version} is available (running: {}). The app shows its update notice; install_update installs it (after asking the user).\n\nRelease notes:\n{}",
+            c.current,
+            clip(notes.trim(), 8000)
+        ),
+    })
+}
+
+fn install_update(host: &dyn Host) -> Result<String, String> {
+    let c = host.check_update()?;
+    let Some((version, _)) = c.available else {
+        return Ok(format!("Nothing to install: Tableboat {} is the latest version.", c.current));
+    };
+    confirm(
+        host,
+        "install_update",
+        &format!("Install Tableboat {version} and restart?"),
+        format!(
+            "Tableboat {version} replaces {}. Tableboat saves your tabs, closes, installs the update and opens again.\nThis chat stops; you can continue it from History.",
+            c.current
+        ),
+    )?;
+    host.start_update_install()?;
+    Ok(format!("Installing Tableboat {version}: Tableboat will close and open again in a moment."))
+}
+
 #[cfg(test)]
 mod tests {
     //! The app tools end to end, through a fake host that records every question, against a
@@ -735,6 +1042,10 @@ mod tests {
         asked: Mutex<Vec<(String, String)>>,
         opened: Mutex<Vec<String>>,
         linked: Mutex<Vec<(String, String)>>,
+        /// Connections "added to the chat" (readable with `connection`).
+        links: Mutex<Vec<String>>,
+        /// What the pretend window was asked to do.
+        ui_log: Mutex<Vec<(String, Value)>>,
     }
 
     impl Host for TestHost {
@@ -757,7 +1068,7 @@ mod tests {
             "test".into()
         }
         fn linked(&self) -> Vec<String> {
-            vec![]
+            self.links.lock().unwrap().clone()
         }
         fn linked_session(&self, id: &str) -> Option<String> {
             self.linked.lock().unwrap().iter().find(|(c, _)| c == id).map(|(_, s)| s.clone())
@@ -779,6 +1090,24 @@ mod tests {
         }
         fn files_dir(&self) -> PathBuf {
             self.dir.clone()
+        }
+        fn check_update(&self) -> Result<crate::mcp::UpdateCheck, String> {
+            Ok(crate::mcp::UpdateCheck { current: "0.1.0".into(), available: Some(("0.2.0".into(), "### Added\n- Things".into())) })
+        }
+        fn ui(&self, action: &str, args: Value) -> Result<Value, String> {
+            self.ui_log.lock().unwrap().push((action.to_string(), args));
+            Ok(match action {
+                "commands" => json!([
+                    { "id": "theme.dark", "category": "Theme", "title": "Dark", "checked": false },
+                    { "id": "edit.save", "category": "Edit", "title": "Save Changes", "keys": "Ctrl+S" }
+                ]),
+                "state" => json!({ "database": "main", "tabs": [] }),
+                _ => Value::Null,
+            })
+        }
+        fn start_update_install(&self) -> Result<(), String> {
+            self.opened.lock().unwrap().push("update".into());
+            Ok(())
         }
     }
 
@@ -819,6 +1148,8 @@ mod tests {
             asked: Mutex::new(vec![]),
             opened: Mutex::new(vec![]),
             linked: Mutex::new(vec![]),
+            links: Mutex::new(vec![]),
+            ui_log: Mutex::new(vec![]),
         };
 
         // Settings: asked, saved, refused when out of range, nothing asked when nothing changes.
@@ -883,6 +1214,53 @@ mod tests {
 
         tool(&h, "open_connection", json!({ "connection": "shop" })).unwrap();
         assert_eq!(h.opened.lock().unwrap().len(), 1);
+
+        // Schema browsing on a connection added to the chat (not added: refused).
+        assert!(tool(&h, "list_objects", json!({ "connection": "Shop" })).unwrap_err().contains("hasn't added"));
+        let shop = h.store.list().into_iter().find(|c| c.name == "Shop").unwrap();
+        h.links.lock().unwrap().push(shop.id.clone());
+        assert!(tool(&h, "list_databases", json!({ "connection": "Shop" })).unwrap().contains("- main (current)"));
+        let objs = tool(&h, "list_objects", json!({ "connection": "Shop" })).unwrap();
+        assert!(objs.contains("- users (table)") && objs.contains("- big (view)"), "{objs}");
+        assert!(!tool(&h, "list_objects", json!({ "connection": "Shop", "kind": "view" })).unwrap().contains("users"));
+        let def = tool(&h, "get_definition", json!({ "connection": "Shop", "name": "BIG" })).unwrap();
+        assert!(def.starts_with("view main.big:") && def.contains("CREATE VIEW big"), "{def}");
+        assert!(tool(&h, "get_definition", json!({ "connection": "Shop", "name": "nope" })).unwrap_err().contains("no object named"));
+
+        // The window: palette commands; view-only ones run freely, others ask first.
+        let list = tool(&h, "list_app_commands", json!({})).unwrap();
+        assert!(list.contains("- theme.dark: Theme > Dark [off]") && list.contains("- edit.save: Edit > Save Changes (Ctrl+S)"), "{list}");
+        let asked = h.asked.lock().unwrap().len();
+        tool(&h, "run_app_command", json!({ "id": "theme.dark" })).unwrap();
+        assert_eq!(h.asked.lock().unwrap().len(), asked, "a theme change doesn't ask");
+        *h.answer.lock().unwrap() = false;
+        assert!(tool(&h, "run_app_command", json!({ "id": "edit.save" })).is_err());
+        assert!(!h.ui_log.lock().unwrap().iter().any(|(a, v)| a == "run" && v["id"] == "edit.save"), "denied: not run");
+        *h.answer.lock().unwrap() = true;
+        tool(&h, "run_app_command", json!({ "id": "edit.save" })).unwrap();
+        assert!(h.ui_log.lock().unwrap().iter().any(|(a, v)| a == "run" && v["id"] == "edit.save"));
+        assert!(tool(&h, "run_app_command", json!({ "id": "nope" })).unwrap_err().contains("no command"));
+        // Opening SQL is free; running it asks like execute_sql.
+        let asked = h.asked.lock().unwrap().len();
+        tool(&h, "open_sql", json!({ "sql": "select 1" })).unwrap();
+        assert_eq!(h.asked.lock().unwrap().len(), asked);
+        tool(&h, "open_sql", json!({ "sql": "delete from t", "run": true })).unwrap();
+        assert_eq!(h.asked.lock().unwrap().last().unwrap().0, "mcp__tableboat__execute_sql");
+        assert!(tool(&h, "get_app_state", json!({})).unwrap().contains("\"database\": \"main\""));
+        h.links.lock().unwrap().clear();
+
+        // Updates: the check reads freely; installing asks, and "no" installs nothing.
+        let out = tool(&h, "check_for_updates", json!({})).unwrap();
+        assert!(out.starts_with("Tableboat 0.2.0 is available (running: 0.1.0)") && out.contains("- Things"), "{out}");
+        *h.answer.lock().unwrap() = false;
+        assert!(tool(&h, "install_update", json!({})).is_err());
+        assert_eq!(h.opened.lock().unwrap().len(), 1);
+        *h.answer.lock().unwrap() = true;
+        assert!(tool(&h, "install_update", json!({})).unwrap().starts_with("Installing Tableboat 0.2.0"));
+        assert_eq!(h.opened.lock().unwrap().last().map(String::as_str), Some("update"));
+        let (t, summary) = h.asked.lock().unwrap().last().cloned().unwrap();
+        assert_eq!(t, "mcp__tableboat__install_update");
+        assert!(summary.contains("replaces 0.1.0"), "{summary}");
         rt.block_on(h.sessions.close_window("test"));
         tool(&h, "delete_connection", json!({ "connection": "Shop" })).unwrap();
         assert!(h.store.list().is_empty());

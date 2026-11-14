@@ -76,6 +76,9 @@ tb ask "export the whole inventory database from local db to inventory.sql"
 tb ask "export my connections to conns.txt"
 ```
 
+Window actions (tabs, the command palette, the editor) only exist in the app's Claude pane; in `tb ask`,
+Claude has the data, connection, settings and export tools.
+
 Claude Code (`claude.exe`) runs in the connection's project folder (`~\.tableboat\sessions\<connection>`,
 shared with the app's Claude pane, including its `CLAUDE.md` notes), with Tableboat's database tools:
 

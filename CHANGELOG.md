@@ -6,6 +6,19 @@ All notable changes to Tableboat are listed here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **Claude can do what you can do in the app.** In the Claude pane it can now:
+  - see what's on screen: the connection, database, open tabs, unsaved edits and results;
+  - run any command from the command palette: theme, zoom, tabs, run or format SQL, save or
+    discard table edits, disconnect, and more (new palette commands are included automatically);
+  - open tables, views and routines in tabs, put SQL into the editor (and run it), and switch
+    the database;
+  - list databases and objects, show any object's definition, and duplicate connections;
+  - check for updates and install one.
+- `execute_sql` from Claude runs whole scripts and takes a database.
+- Anything that can change data or lose work still asks you first.
+
 ### Fixed
 
 - Builds made by GitHub no longer say "with uncommitted changes" in the About box.

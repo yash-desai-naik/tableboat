@@ -52,6 +52,8 @@ void listen<{ downloaded: number; total: number | null }>("update:progress", (e)
   set({ phase: "downloading", downloaded: e.payload.downloaded, total: e.payload.total }),
 );
 void listen("update:installing", () => set({ phase: "installing" }));
+// Claude's install_update, after the user agreed in the pane.
+void listen("update:install-request", () => void installUpdate());
 // Before the installer closes Tableboat, every window saves its tabs.
 void listen("app:flush", () => void flushWorkspace());
 void invoke<UpdateInfo | null>("update_status")

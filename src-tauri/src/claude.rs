@@ -147,7 +147,7 @@ pub fn default_model() -> Option<String> {
 }
 
 /// What the app tools can do (shared by both prompts).
-const APP_TOOLS: &str = "Tableboat's app tools work on the app itself: list_connections; get_settings and update_settings (theme, density, zoom, font sizes, panes, rows per page, Claude model, ...); save_connection (create a connection from the details or a URL the user gives, or change one), test_connection, delete_connection; export_connections and import_connections (files of connection URLs); export_data (a table, collection or query result to .csv, .tsv, .json, .xlsx, .md or .sql); dump_database (a whole database to a .sql script; MongoDB: a folder with one JSON file per collection); open_connection (a new Tableboat window). Tools that change something ask the user first, so call them directly instead of asking for confirmation in the chat. Never repeat passwords back.";
+const APP_TOOLS: &str = "Tableboat's app tools work on the app itself: list_connections; get_settings and update_settings (theme, density, zoom, font sizes, panes, rows per page, Claude model, ...); save_connection (create a connection from the details or a URL the user gives, or change one), test_connection, delete_connection; export_connections and import_connections (files of connection URLs); export_data (a table, collection or query result to .csv, .tsv, .json, .xlsx, .md or .sql); dump_database (a whole database to a .sql script; MongoDB: a folder with one JSON file per collection); open_connection (a new Tableboat window); check_for_updates and install_update (Tableboat itself); list_databases, list_objects and get_definition (schema browsing). In the app's window: get_app_state (tabs, edits and results on screen), list_app_commands and run_app_command (everything in the command palette: theme, zoom, tabs, run or format SQL, save or discard table edits, disconnect...), open_object, open_sql and use_database. Tools that change something ask the user first, so call them directly instead of asking for confirmation in the chat. For anything about Tableboat itself, use these tools rather than shell commands or the registry. Never repeat passwords back.";
 
 /// For the app's Claude pane.
 pub fn pane_prompt() -> String {
@@ -172,6 +172,14 @@ pub const READ_TOOLS: &[&str] = &[
     "mcp__tableboat__get_settings",
     "mcp__tableboat__test_connection",
     "mcp__tableboat__open_connection",
+    "mcp__tableboat__check_for_updates",
+    "mcp__tableboat__list_databases",
+    "mcp__tableboat__list_objects",
+    "mcp__tableboat__get_definition",
+    "mcp__tableboat__get_app_state",
+    "mcp__tableboat__list_app_commands",
+    "mcp__tableboat__open_object",
+    "mcp__tableboat__use_database",
 ];
 
 /// Tools that change something: each asks the user itself (with a readable summary), whatever
@@ -185,6 +193,10 @@ pub const ASKS_ITSELF: &[&str] = &[
     "mcp__tableboat__import_connections",
     "mcp__tableboat__export_data",
     "mcp__tableboat__dump_database",
+    "mcp__tableboat__install_update",
+    "mcp__tableboat__duplicate_connection",
+    "mcp__tableboat__run_app_command",
+    "mcp__tableboat__open_sql",
 ];
 
 /// Write the MCP config file that points Claude Code at Tableboat's tool server.

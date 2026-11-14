@@ -5,6 +5,7 @@ import { ConnectionList } from "./connections/ConnectionList";
 import { ConnectionSwitcher, type SwitcherMode } from "./connections/ConnectionSwitcher";
 import { api, type SessionInfo } from "./lib/connections";
 import { buildCommands, type Command } from "./lib/commands";
+import { publishCommands } from "./lib/agentBridge";
 import { comboFromEvent, isBrowserReserved } from "./lib/keys";
 import { disconnect, useSession } from "./lib/session";
 import { updateSettings, useSettings } from "./lib/settings";
@@ -96,6 +97,8 @@ export function App() {
     // Rebuild when settings or the connection change so the list stays current.
     [settings, session, ws],
   );
+  // Claude's run_app_command sees exactly what the palette shows.
+  useEffect(() => publishCommands(commands), [commands]);
 
   const pillItems: MenuItem[] =
     session.status === "open"

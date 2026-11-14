@@ -285,6 +285,18 @@ const TOOL_NAMES: Record<string, string> = {
   export_data: "Export data",
   dump_database: "Export database",
   open_connection: "Open connection",
+  check_for_updates: "Check for updates",
+  install_update: "Install update",
+  duplicate_connection: "Duplicate connection",
+  list_databases: "Databases",
+  list_objects: "Objects",
+  get_definition: "Definition",
+  get_app_state: "App state",
+  list_app_commands: "App commands",
+  run_app_command: "Run command",
+  open_object: "Open object",
+  open_sql: "Open SQL",
+  use_database: "Use database",
 };
 
 /** Tool input with passwords hidden (in fields and inside connection URLs). */
