@@ -1,3 +1,4 @@
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import data from "./themes.json";
 import type { Settings } from "../lib/settings";
 
@@ -278,10 +279,33 @@ function show(theme: ThemeData): void {
   root.dataset.colorTheme = theme.id;
 }
 
-/** Show a theme on this window: sets `data-theme` (mode), `data-color-theme` (id) and the variables. */
+/** The native window colour last set, to skip repeat calls. */
+let windowBackground: string | null = null;
+
+/**
+ * Paints the native window in the theme's chrome colour, which shows at start-up and while resizing.
+ * Fails silently outside Tauri or where it is unsupported.
+ */
+function setWindowBackground(color: string): void {
+  if (color === windowBackground) return;
+  windowBackground = color;
+  try {
+    void getCurrentWindow()
+      .setBackgroundColor(color)
+      .catch(() => {});
+  } catch {
+    // not running in Tauri
+  }
+}
+
+/**
+ * Show a theme on this window: sets `data-theme` (mode), `data-color-theme` (id) and the variables,
+ * and the native window background. Previews (`previewTheme`) leave the window background alone.
+ */
 export function applyTheme(theme: ThemeData): void {
   applied = theme;
   show(theme);
+  setWindowBackground(theme.surface.chrome);
 }
 
 /**
