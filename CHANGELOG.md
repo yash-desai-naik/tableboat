@@ -6,6 +6,13 @@ All notable changes to Tableboat are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-11-14
+
+### Fixed
+
+- The "Used now" label in Settings → Appearance is readable in light themes (it was white text on a
+  pale tint).
+
 ## [0.3.0] - 2026-11-14
 
 ### Added
@@ -110,7 +117,8 @@ Claude Code built in.
 - Light and dark themes, three densities, zoom, a command palette, and an About box with the
   version, build and data folders.
 
-[Unreleased]: https://github.com/yash-desai-naik/tableboat/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/yash-desai-naik/tableboat/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/yash-desai-naik/tableboat/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/yash-desai-naik/tableboat/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/yash-desai-naik/tableboat/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/yash-desai-naik/tableboat/releases/tag/v0.1.0
