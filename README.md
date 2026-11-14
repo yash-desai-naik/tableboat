@@ -66,11 +66,17 @@ sudo ln -s /Applications/Tableboat.app/Contents/MacOS/tb /usr/local/bin/tb
 After that, Tableboat tells you about new versions and installs them itself (or check any time:
 About > Check for updates); your connections and settings are kept.
 
-Neither build is code-signed yet. On Windows, if SmartScreen says "Windows protected your PC", click
-**More info**, then **Run anyway**. On macOS, the first time you open Tableboat, right-click it in
-Applications and choose **Open** (or run
-`xattr -dr com.apple.quarantine /Applications/Tableboat.app`), then confirm. Each release lists the
-SHA-256 checksums so you can check them. What changed in each version: [CHANGELOG.md](CHANGELOG.md).
+Neither build is code-signed or notarized yet. On Windows, if SmartScreen says "Windows protected
+your PC", click **More info**, then **Run anyway**. On macOS, the first launch is blocked with
+*"Apple could not verify Tableboat.app is free of malware"*. Drag the app to Applications, then do
+one of these:
+
+- try to open it once, then go to **System Settings → Privacy & Security**, scroll down and click
+  **Open Anyway** next to the Tableboat message; or
+- run `xattr -dr com.apple.quarantine /Applications/Tableboat.app` in Terminal, then open it.
+
+You only need to do this once. Each release lists the SHA-256 checksums so you can check the files.
+What changed in each version: [CHANGELOG.md](CHANGELOG.md).
 
 ## Build from source
 

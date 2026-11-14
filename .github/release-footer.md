@@ -16,11 +16,12 @@ bundle; see the README to put it on your PATH. Updates install in place and keep
 settings and saved passwords.
 
 > [!NOTE]
-> Neither build is code-signed yet. On Windows, SmartScreen may show "Windows protected your PC":
-> click **More info**, then **Run anyway**. On macOS, the first time you open Tableboat, right-click
-> it in Applications and choose **Open** (or run
-> `xattr -dr com.apple.quarantine /Applications/Tableboat.app`), then confirm. You can check that a
-> file is the one built here with its SHA-256 checksum below.
+> Neither build is code-signed or notarized yet. On Windows, SmartScreen may show "Windows protected
+> your PC": click **More info**, then **Run anyway**. On macOS, the first launch is blocked with
+> *"Apple could not verify Tableboat.app is free of malware"*. Drag the app to Applications, then
+> either try to open it once and click **Open Anyway** in **System Settings → Privacy & Security**,
+> or run `xattr -dr com.apple.quarantine /Applications/Tableboat.app` in Terminal. You only need to
+> do this once. You can check that a file is the one built here with its SHA-256 checksum below.
 
 **SHA-256** (also in `SHA256SUMS.txt`):
 
