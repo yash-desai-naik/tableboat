@@ -75,7 +75,7 @@ preferred light/dark themes. Existing settings files keep working: the new keys 
 ```
 src/themes/themes.json      every theme's seed colours (section 5.1), ~25 values each
 src/themes/index.ts         loads the JSON, derives the rest (section 5.2), writes CSS variables on <html>
-src/styles.css              only layout tokens (sizes, radii, fonts) and the derivation formulas
+src/styles.css              layout tokens (sizes, radii, fonts); the two Tableboat themes as a first-paint fallback
 src-tauri/src/themes.rs     test only: reads the same JSON and enforces section 6 in `cargo test` (CI)
 ```
 
@@ -116,12 +116,14 @@ src-tauri/src/themes.rs     test only: reads the same JSON and enforces section 
 | `selection` (optional) | text selection and selected rows; derived when absent |
 | `red orange yellow green cyan blue purple pink` | the theme's 8 hues |
 | `status.danger/warning/success/info` (optional) | default to red, yellow, green, blue |
+| `dangerFill` | red fill under white text (close button, error badges): `status.danger` moved darker in OKLCH until white reaches 4.5:1, equal to it when white already passes; written by the generator |
 | `syntax.*` (9) | keyword, type, function, string, number, literal (true/false/null), property (also JSON/Mongo keys), operator, comment; a hue name or a colour |
 | `kind.*` (5) | table, view, function, procedure, trigger icons in the sidebar, palette and Claude mentions |
 
 ### 5.2 Derived — computed the same way for every theme (theme may override)
 
-Mixes are `color-mix(in oklab, …)` so they look even across hues.
+Mixes are done in OKLab so they look even across hues, and `index.ts` computes each one to a plain hex or
+rgba value (never `color-mix()`), because the result grid reads the variables for a canvas.
 
 | Token | Formula | Used by |
 |---|---|---|
@@ -134,19 +136,19 @@ Mixes are `color-mix(in oklab, …)` so they look even across hues.
 | `--zebra` | text 3% over bg | alternate grid rows |
 | `--grid-line` | text 7% over bg | grid cell borders (today hard-coded) |
 | `--selection` | accent 30% over bg | selected text, selected grid cells |
-| `--accent-hover` | fill 8% toward text | primary button hover (replaces the white/black mixes) |
+| `--accent-hover` | fill's OKLCH lightness −0.035, or +0.035 when darker would drop `onAccent` below 4.5:1 | primary button hover (replaces the white/black mixes) |
 | `--accent-tint` / `--accent-soft` | accent 20% over bg / accent at 22% (dark) 14% (light) alpha | autocomplete selection, soft highlights |
 | `--danger --warning --success --info` | status seeds | error text, "truncated", "cancelled", connected dots |
 | `--danger-bg`, `--success-bg`, … | status 14% over bg | notices (error, saved) |
-| `--on-danger` | white or black, whichever contrasts more | red close button, error badge |
+| `--danger-fill` / `--on-danger` | `dangerFill` seed / always white | red close button, error badge |
 | `--edit-changed / -added / -deleted` | warning / success / danger 18% over bg | pending-edit cell and row tints |
 | `--search-match` / `--search-current` | warning 30% / 55% over bg | editor and grid search |
 | `--editor-gutter` / `-active` | text3 / text2 | line numbers |
 | `--editor-current-stmt` | text 4% over bg | the statement Ctrl+Enter runs |
 | `--editor-bracket` | text 12% over bg, outline text3 | matching bracket |
 | `--scrollbar` / `-hover` | text 22% / 32% over bg | scrollbars |
-| `--scrim` | black 45% (dark) / 22% (light) | behind dialogs |
-| `--shadow-raised` / `--shadow-popup` | black at 35%/50% (dark), warm/cool 14%/16% (light) | raised controls / popups |
+| `--scrim` | black at 45% alpha (dark) / text at 22% alpha (light) | behind dialogs |
+| `--shadow-raised` / `--shadow-popup` | black at 35%/50% (dark); light: 14%/16% of a warm brown on warm backgrounds (red ≥ blue), a cool slate otherwise | raised controls / popups |
 | `--syn-*` | syntax seeds | SQL editor, Mongo document view, JSON view, SQL previews |
 | `--kind-*` | kind seeds | object icons |
 
@@ -161,12 +163,12 @@ Checked in CI on every theme, against every surface the colour appears on:
 | `text` | **7:1** (AAA) | bg, chrome, sidebar, elevated |
 | `text2`, `text3` | **4.5:1** (AA) | bg, chrome, sidebar, elevated |
 | `accent` used as text | 4.5:1 | bg, elevated |
-| `onAccent` on `accentFill`, `on-danger` on danger | 4.5:1 | |
+| `onAccent` on `accentFill`, `onDanger` (white) on `dangerFill` | 4.5:1 | |
 | `text` on `selection` | 4.5:1 | |
 | status colours as text | 4.5:1 | bg, elevated |
 | syntax colours | 4.5:1; comments **3.5:1** (deliberately quiet, still legible) | bg |
 | object-kind icons, focus ring | 3:1 (non-text, WCAG 1.4.11) | sidebar, bg |
-| High Contrast themes | text 15:1, everything else 7:1 | |
+| High Contrast themes | text 15:1; secondary, hints, accent text, status and syntax 7:1; comments 3.5:1, icons 3:1 (the other pairs as above) | |
 
 If a palette colour misses, the build-time tool moves its OKLCH lightness the smallest step that passes,
 keeping hue and chroma. The adjusted value is written into `themes.json` with the original beside it, so
