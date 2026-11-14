@@ -6,6 +6,8 @@ All notable changes to Tableboat are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-14
+
 ### Added
 
 - **19 colour themes.** Besides Tableboat Light and Dark: Catppuccin Latte and Mocha, Tokyo Night,
@@ -108,6 +110,7 @@ Claude Code built in.
 - Light and dark themes, three densities, zoom, a command palette, and an About box with the
   version, build and data folders.
 
-[Unreleased]: https://github.com/yash-desai-naik/tableboat/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/yash-desai-naik/tableboat/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/yash-desai-naik/tableboat/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/yash-desai-naik/tableboat/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/yash-desai-naik/tableboat/releases/tag/v0.1.0
