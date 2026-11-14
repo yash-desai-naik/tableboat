@@ -146,7 +146,7 @@ body.resizing-v * {
   padding: 0 5px;
   border-radius: 8px;
   background: var(--danger);
-  color: #ffffff;
+  color: var(--on-danger);
   font-size: var(--fs-xs);
 }
 
@@ -164,7 +164,7 @@ body.resizing-v * {
   flex: none;
 }
 .trunc {
-  color: #d29922;
+  color: var(--warning);
 }
 .results-status {
   min-width: 0;
@@ -192,7 +192,7 @@ body.resizing-v * {
   cursor: text;
 }
 .search-box:focus-within {
-  border-color: var(--accent);
+  border-color: var(--focus-ring);
   background: var(--bg);
 }
 .search-box svg {
@@ -339,10 +339,10 @@ body.resizing-v * {
   font-size: var(--fs-md);
 }
 .msg.error .msg-result {
-  color: #e5534b;
+  color: var(--danger);
 }
 .msg.cancelled .msg-result {
-  color: #d29922;
+  color: var(--warning);
 }
 .msg-time {
   margin-left: auto;
@@ -425,7 +425,7 @@ body.resizing-v * {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  color: #e5534b;
+  color: var(--danger);
   font-size: var(--fs-md);
   user-select: text;
 }
@@ -434,7 +434,7 @@ body.resizing-v * {
   height: 7px;
   flex: none;
   border-radius: 50%;
-  background: #d29922;
+  background: var(--warning);
 }
 .preview-sql {
   max-height: 55vh;
@@ -446,21 +446,7 @@ body.resizing-v * {
 }
 
 /* ---------- MongoDB document view ---------- */
-
-:root[data-theme="dark"] {
-  --doc-key: #9cdcfe;
-  --doc-str: #ce9178;
-  --doc-num: #b5cea8;
-  --doc-kw: #569cd6;
-  --doc-type: #4ec9b0;
-}
-:root[data-theme="light"] {
-  --doc-key: #001080;
-  --doc-str: #a31515;
-  --doc-num: #098658;
-  --doc-kw: #0000ff;
-  --doc-type: #267f99;
-}
+/* Colours are the editor's syntax tokens (--syn-*), so documents match the SQL editor. */
 
 .docs {
   flex: 1;
@@ -548,7 +534,7 @@ body.resizing-v * {
   padding-left: 14px;
 }
 .doc-key {
-  color: var(--doc-key);
+  color: var(--syn-property);
 }
 .doc-index {
   color: var(--text-3);
@@ -559,17 +545,17 @@ body.resizing-v * {
   color: var(--text-2);
 }
 .t-str {
-  color: var(--doc-str);
+  color: var(--syn-string);
 }
 .t-num {
-  color: var(--doc-num);
+  color: var(--syn-number);
 }
 .t-kw {
-  color: var(--doc-kw);
+  color: var(--syn-literal);
 }
 .t-oid,
 .t-date {
-  color: var(--doc-type);
+  color: var(--syn-type);
 }
 .doc-more-text {
   all: unset;
@@ -603,7 +589,7 @@ body.resizing-v * {
 }
 .doc-editor:focus {
   outline: 2px solid var(--accent-soft);
-  border-color: var(--accent);
+  border-color: var(--focus-ring);
 }
 .doc-editor-error {
   margin-top: 8px;

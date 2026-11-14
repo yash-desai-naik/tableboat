@@ -259,13 +259,17 @@ body.resizing * {
   border-radius: 6px;
   background-clip: padding-box;
 }
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-hover);
+  background-clip: padding-box;
+}
 ::-webkit-scrollbar-track,
 ::-webkit-scrollbar-corner {
   background: transparent;
 }
 
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus-ring);
   outline-offset: -2px;
 }
 
@@ -442,7 +446,7 @@ body.resizing * {
 }
 .caption-btn.close:hover {
   background: var(--danger);
-  color: #ffffff;
+  color: var(--on-danger);
 }
 
 /* ---------- panes ---------- */

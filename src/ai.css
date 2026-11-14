@@ -158,7 +158,7 @@
   background: var(--text-3);
 }
 .ai-dot.ok {
-  background: #3fa36b;
+  background: var(--success);
 }
 .ai-dot.error {
   background: var(--danger);
@@ -328,7 +328,7 @@
 }
 .ai-note.error {
   border: 1px solid var(--danger);
-  background: color-mix(in srgb, var(--danger) 10%, var(--bg));
+  background: var(--danger-bg);
 }
 
 /* Permission prompt: numbered choices, like the CLI. */
@@ -395,7 +395,7 @@
   background: var(--bg-hover);
 }
 .ai-perm-option:first-child:focus-visible {
-  border-color: var(--accent);
+  border-color: var(--focus-ring);
 }
 .ai-perm-option kbd {
   min-width: 18px;
@@ -462,7 +462,7 @@
 }
 .ai-mention-icon.k-connection,
 .ai-att.k-connection .ai-att-icon {
-  color: #3fa36b;
+  color: var(--success);
 }
 .ai-mention-label {
   min-width: 0;
@@ -582,7 +582,7 @@
   cursor: text;
 }
 .ai-composer:focus-within {
-  border-color: var(--accent);
+  border-color: var(--focus-ring);
 }
 .ai-input {
   display: block;
@@ -617,7 +617,7 @@
   background: var(--text-3);
 }
 .ai-chip-dot.on {
-  background: #3fa36b;
+  background: var(--success);
 }
 .ai-mode {
   flex: none;
@@ -679,12 +679,12 @@
   padding: 0;
   border: 0;
   border-radius: 6px;
-  background: var(--accent);
+  background: var(--accent-fill);
   color: var(--accent-text);
   cursor: pointer;
 }
 .ai-send:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--accent) 88%, #000000);
+  background: var(--accent-hover);
 }
 .ai-send:disabled {
   opacity: 0.45;

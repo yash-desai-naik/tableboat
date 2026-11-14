@@ -24,7 +24,7 @@
   background: var(--control-fill-hover);
 }
 .btn:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 1px;
 }
 .btn:disabled {
@@ -32,15 +32,16 @@
   cursor: default;
 }
 .btn.primary {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: var(--accent-fill);
+  border-color: var(--accent-fill);
   color: var(--accent-text);
 }
 .btn.primary:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--accent) 88%, #ffffff);
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
 }
 .btn.primary:disabled {
-  background: color-mix(in srgb, var(--accent) 50%, var(--bg));
+  background: color-mix(in srgb, var(--accent-fill) 50%, var(--bg));
   border-color: transparent;
 }
 
@@ -68,7 +69,7 @@
   outline: none;
 }
 .input:focus {
-  border-color: var(--accent);
+  border-color: var(--focus-ring);
 }
 .input::placeholder {
   color: var(--text-3);
@@ -114,12 +115,12 @@ textarea.input {
   user-select: text;
 }
 .notice.ok {
-  border-color: #2e7d32;
-  background: color-mix(in srgb, #2e7d32 12%, var(--bg));
+  border-color: var(--success);
+  background: var(--success-bg);
 }
 .notice.error {
   border-color: var(--danger);
-  background: color-mix(in srgb, var(--danger) 12%, var(--bg));
+  background: var(--danger-bg);
 }
 
 /* ---------- dialog ---------- */
@@ -202,7 +203,7 @@ textarea.input {
   color: var(--text-3);
 }
 .menu-item.danger {
-  color: #e5534b;
+  color: var(--danger);
 }
 .menu-hint {
   color: var(--text-3);
@@ -248,7 +249,7 @@ textarea.input {
   outline: none;
 }
 .conn-list:focus-visible {
-  border-color: var(--accent);
+  border-color: var(--focus-ring);
 }
 
 .conn-row {
@@ -288,7 +289,7 @@ textarea.input {
   display: grid;
   place-items: center;
   border-radius: 50%;
-  color: #ffffff;
+  color: var(--accent-text);
   font-size: var(--fs-sm);
   font-weight: 600;
 }
@@ -399,7 +400,7 @@ textarea.input {
   box-shadow: var(--shadow-raised);
 }
 .seg:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--focus-ring);
   outline-offset: 1px;
 }
 .soon {
