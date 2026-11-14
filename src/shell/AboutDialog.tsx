@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { getTauriVersion, getVersion } from "@tauri-apps/api/app";
 import { invoke } from "@tauri-apps/api/core";
+import { CREDENTIAL_STORE, IS_MAC } from "../lib/platform";
 import { AppMark } from "./Icons";
 import { checkForUpdates, installUpdate, useUpdate } from "../lib/update";
 import { Dialog } from "./Dialog";
@@ -40,7 +41,8 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
   const update = useUpdate();
 
   useEffect(() => {
-    const webview = /Edg\/([\d.]+)/.exec(navigator.userAgent)?.[1] ?? "?";
+    const ua = navigator.userAgent;
+    const webview = (IS_MAC ? /Version\/([\d.]+)/.exec(ua)?.[1] ?? /AppleWebKit\/([\d.]+)/.exec(ua)?.[1] : /Edg\/([\d.]+)/.exec(ua)?.[1]) ?? "?";
     void Promise.all([getVersion(), getTauriVersion()])
       .then(([version, tauri]) => setInfo({ version, tauri, webview }))
       .catch(() => setInfo({ version: "?", tauri: "?", webview }));
@@ -54,7 +56,7 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
         ["Build", `${b.commit}${b.dirty ? " (with uncommitted changes)" : ""}${b.dev ? " · development run" : ""}`],
         ["Built", built.toLocaleString()],
         ["Tauri", info.tauri],
-        ["WebView2", info.webview],
+        [IS_MAC ? "WebKit" : "WebView2", info.webview],
       ]
     : [];
 
@@ -137,7 +139,7 @@ export function AboutDialog({ onClose }: { onClose: () => void }) {
                   <button className="link-btn" onClick={() => void invoke("open_app_folder", { which: "data" })}>
                     Open
                   </button>
-                  <div className="muted small">Settings, saved connections (passwords are in Windows Credential Manager), open tabs</div>
+                  <div className="muted small">Settings, saved connections (passwords are in the {CREDENTIAL_STORE}), open tabs</div>
                 </td>
               </tr>
               <tr>

@@ -82,7 +82,8 @@ pub fn parse(input: &str) -> Result<(Connection, Secrets), String> {
         if path.is_empty() {
             return Err("The SQLite URL has no file path".into());
         }
-        conn.file = Some(path.replace('/', "\\"));
+        // Windows keeps its native separators; macOS and Linux keep the URL's forward slashes.
+        conn.file = Some(if cfg!(windows) { path.replace('/', "\\") } else { path });
         conn.host = String::new();
         apply_query(&mut conn, query);
         return Ok((conn, secrets));
@@ -210,7 +211,9 @@ pub fn to_url(conn: &Connection, secrets: &Secrets, include_passwords: bool) -> 
     if conn.engine == Engine::Sqlite {
         let file = conn.file.clone().unwrap_or_default().replace('\\', "/");
         let encoded: Vec<String> = file.split('/').map(enc_path_segment).collect();
-        return format!("sqlite:///{}{}", encoded.join("/"), query(&[], &params));
+        // An absolute path already starts with "/", so it needs one slash, not the drive-letter form.
+        let head = if cfg!(windows) { "sqlite:///" } else { "sqlite://" };
+        return format!("{head}{}{}", encoded.join("/"), query(&[], &params));
     }
 
     let mut extra: Vec<(String, String)> = Vec::new();
@@ -356,8 +359,23 @@ mod tests {
     #[test]
     fn sqlite_windows_path() {
         let (c, _) = parse("sqlite:///C:/Data/my%20db.sqlite").unwrap();
+        // Paths keep the platform's separators: Windows backslashes, macOS and Linux slashes.
+        #[cfg(windows)]
         assert_eq!(c.file.as_deref(), Some("C:\\Data\\my db.sqlite"));
+        #[cfg(not(windows))]
+        assert_eq!(c.file.as_deref(), Some("C:/Data/my db.sqlite"));
         let (c2, _) = parse(&to_url(&c, &Secrets::default(), false)).unwrap();
+        assert_eq!(c2.file, c.file);
+    }
+
+    #[test]
+    #[cfg(not(windows))]
+    fn sqlite_unix_path_round_trip() {
+        let (c, _) = parse("sqlite:///Users/me/shop.db").unwrap();
+        assert_eq!(c.file.as_deref(), Some("/Users/me/shop.db"));
+        let url = to_url(&c, &Secrets::default(), false);
+        assert!(url.starts_with("sqlite:///Users/me/shop.db"), "{url}");
+        let (c2, _) = parse(&url).unwrap();
         assert_eq!(c2.file, c.file);
     }
 

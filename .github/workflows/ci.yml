@@ -1,4 +1,4 @@
-# Type-checks, builds and tests every push to master and every pull request.
+# Type-checks, builds and tests every push to master and every pull request, on Windows and macOS.
 name: CI
 
 on:
@@ -11,7 +11,11 @@ permissions:
 
 jobs:
   check:
-    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4

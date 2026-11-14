@@ -1,11 +1,14 @@
-//! Passwords and passphrases in Windows Credential Manager, one generic credential per
-//! secret: service "Tableboat", user "<connection-id>/<field>". Nothing secret is ever
-//! written to connections.json.
+//! Passwords and passphrases in the OS keychain (Windows Credential Manager, macOS Keychain),
+//! one generic credential per secret: service "Tableboat", user "<connection-id>/<field>".
+//! Nothing secret is ever written to connections.json.
 
 use super::model::Secrets;
 use keyring_core::{Entry, Error};
 
 const SERVICE: &str = "Tableboat";
+
+/// The OS store passwords live in, for messages shown to the user.
+pub const STORE_NAME: &str = if cfg!(windows) { "Windows Credential Manager" } else { "the macOS Keychain" };
 
 pub const PASSWORD: &str = "password";
 pub const SSH_PASSWORD: &str = "ssh-password";
@@ -13,8 +16,15 @@ pub const SSH_PASSPHRASE: &str = "ssh-passphrase";
 const FIELDS: [&str; 3] = [PASSWORD, SSH_PASSWORD, SSH_PASSPHRASE];
 
 pub fn init() -> Result<(), String> {
+    #[cfg(windows)]
     let store = windows_native_keyring_store::Store::new()
         .map_err(|e| format!("Windows Credential Manager is not available: {e}"))?;
+    #[cfg(target_os = "macos")]
+    let store = apple_native_keyring_store::keychain::Store::new()
+        .map_err(|e| format!("The macOS Keychain is not available: {e}"))?;
+    #[cfg(not(any(windows, target_os = "macos")))]
+    return Err("Tableboat can only save passwords on Windows and macOS.".into());
+    #[cfg(any(windows, target_os = "macos"))]
     keyring_core::set_default_store(store);
     Ok(())
 }

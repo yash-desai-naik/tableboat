@@ -15,6 +15,7 @@ import {
   type SshAuth,
   type SslMode,
 } from "../lib/connections";
+import { CREDENTIAL_STORE, modPressed } from "../lib/platform";
 import { Dialog } from "../shell/Dialog";
 
 interface StoredFlags {
@@ -171,7 +172,7 @@ export function ConnectionForm({ title, initial, initialSecrets, stored, onClose
       <div
         className="conn-form"
         onKeyDown={(e) => {
-          if (e.key === "Enter" && e.ctrlKey) {
+          if (e.key === "Enter" && modPressed(e)) {
             e.preventDefault();
             void save(true);
           }
@@ -184,7 +185,7 @@ export function ConnectionForm({ title, initial, initialSecrets, stored, onClose
             value={urlInput}
             onChange={(e) => setUrlInput(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.ctrlKey) {
+              if (e.key === "Enter" && !modPressed(e)) {
                 e.preventDefault();
                 void importUrl();
               }
@@ -319,7 +320,7 @@ export function ConnectionForm({ title, initial, initialSecrets, stored, onClose
               <Row label="Password">
                 <SecretInput
                   field={password}
-                  storedLabel={stored?.hasPassword ? "Saved in Windows Credential Manager" : undefined}
+                  storedLabel={stored?.hasPassword ? `Saved in the ${CREDENTIAL_STORE}` : undefined}
                   onChange={(f) => {
                     setPassword(f);
                     setResult(null);
@@ -477,7 +478,7 @@ export function ConnectionForm({ title, initial, initialSecrets, stored, onClose
                     <Row label="SSH password">
                       <SecretInput
                         field={sshPassword}
-                        storedLabel={stored?.hasSshPassword ? "Saved in Windows Credential Manager" : undefined}
+                        storedLabel={stored?.hasSshPassword ? `Saved in the ${CREDENTIAL_STORE}` : undefined}
                         onChange={setSshPassword}
                       />
                     </Row>
@@ -495,7 +496,7 @@ export function ConnectionForm({ title, initial, initialSecrets, stored, onClose
                         <SecretInput
                           field={passphrase}
                           placeholder="only if the key has one"
-                          storedLabel={stored?.hasSshPassphrase ? "Saved in Windows Credential Manager" : undefined}
+                          storedLabel={stored?.hasSshPassphrase ? `Saved in the ${CREDENTIAL_STORE}` : undefined}
                           onChange={setPassphrase}
                         />
                       </Row>

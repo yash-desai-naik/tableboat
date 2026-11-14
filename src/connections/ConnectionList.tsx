@@ -17,6 +17,7 @@ import { connect, useSession } from "../lib/session";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
 import { lastConnection } from "../lib/persist";
+import { CREDENTIAL_STORE } from "../lib/platform";
 import { getSettings } from "../lib/settings";
 import { Dialog } from "../shell/Dialog";
 import { Menu, type MenuItem } from "../shell/Menu";
@@ -366,7 +367,7 @@ export function ConnectionList() {
           })}
         </div>
         <div className="conn-hint muted">
-          Double-click or Enter to connect · ✎ or F2 to edit · right-click for more · passwords are kept in Windows Credential Manager
+          Double-click or Enter to connect · ✎ or F2 to edit · right-click for more · passwords are kept in the {CREDENTIAL_STORE}
         </div>
       </div>
 

@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { OBJECT_KINDS } from "../lib/meta";
+import { fmtShortcut, OS_NAME } from "../lib/platform";
 import { updateSettings, useSettings, type Settings } from "../lib/settings";
 import { Dialog } from "../shell/Dialog";
 import { useAppVersion, versionLine } from "../shell/AboutDialog";
@@ -25,9 +26,9 @@ const ENTRIES: Entry[] = [
     key: "theme",
     type: "select",
     label: "Mode",
-    help: "Light or dark theme. Match Windows switches with Windows.",
+    help: `Light or dark theme. "Match ${OS_NAME}" follows your system's appearance setting.`,
     options: [
-      ["system", "Match Windows"],
+      ["system", `Match ${OS_NAME}`],
       ["light", "Light"],
       ["dark", "Dark"],
     ],
@@ -65,7 +66,7 @@ const ENTRIES: Entry[] = [
     key: "uiZoom",
     type: "select",
     label: "Zoom",
-    help: "Ctrl+= / Ctrl+- / Ctrl+0",
+    help: `${fmtShortcut("Ctrl+=")} / ${fmtShortcut("Ctrl+-")} / ${fmtShortcut("Ctrl+0")}`,
     options: [0.67, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2].map((z) => [z, `${Math.round(z * 100)}%`]),
   },
   { section: "Appearance", key: "editorFontSize", type: "number", label: "Editor font size", min: 8, max: 40, suffix: "px" },

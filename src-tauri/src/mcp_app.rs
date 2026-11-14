@@ -33,7 +33,7 @@ pub fn tool_list() -> Vec<Value> {
         }),
         json!({
             "name": "save_connection",
-            "description": "Create a saved connection, or change one (pass `connection`). Give a `url` (mysql://user:pass@host:3306/db, mariadb://…, sqlite:///C:/path/file.db, mongodb://… or mongodb+srv://…, mysql+ssh://sshuser@bastion/user:pass@dbhost:3306/db) and/or the separate fields; fields override the URL. Passwords are stored in Windows Credential Manager. The user is asked first.",
+            "description": "Create a saved connection, or change one (pass `connection`). Give a `url` (mysql://user:pass@host:3306/db, mariadb://…, sqlite:///path/file.db, mongodb://… or mongodb+srv://…, mysql+ssh://sshuser@bastion/user:pass@dbhost:3306/db) and/or the separate fields; fields override the URL. Passwords are stored in the system keychain. The user is asked first.",
             "inputSchema": { "type": "object", "properties": {
                 "connection": { "type": "string", "description": "Existing connection to change (name or id); leave out to create a new one" },
                 "url": { "type": "string" },
@@ -520,12 +520,13 @@ fn save_connection(host: &dyn Host, args: &Value) -> Result<String, String> {
         _ if conn.engine == Engine::Sqlite => None,
         _ if !conn.save_password => Some("password: asked every time".to_string()),
         Some("") if existing.is_some() => Some("password: removed".into()),
-        Some(_) if existing.is_some() => Some("password: changed (saved in Windows Credential Manager)".into()),
-        Some(_) => Some("password: saved in Windows Credential Manager".into()),
+        Some(_) if existing.is_some() => Some(format!("password: changed (saved in {})", secrets::STORE_NAME)),
+        Some(_) => Some(format!("password: saved in {}", secrets::STORE_NAME)),
         None if existing.is_some() => None,
         None => Some("password: none".into()),
     };
-    let ssh_note = new_secrets.ssh_password.as_ref().map(|_| "SSH password: saved in Windows Credential Manager".to_string());
+    let ssh_note =
+        new_secrets.ssh_password.as_ref().map(|_| format!("SSH password: saved in {}", secrets::STORE_NAME));
 
     let test_result = if args.get("test").and_then(Value::as_bool).unwrap_or(true) {
         // Test with what would be stored: the new secrets over the saved ones.
@@ -1021,7 +1022,7 @@ fn install_update(host: &dyn Host) -> Result<String, String> {
 mod tests {
     //! The app tools end to end, through a fake host that records every question, against a
     //! throwaway data folder and SQLite files (nothing real is touched; SQLite needs no password,
-    //! so Windows Credential Manager isn't written either).
+    //! so the system keychain isn't written either).
 
     use super::call;
     use crate::claude::AiContext;

@@ -1,5 +1,5 @@
 //! `tb`: Tableboat on the command line. A small console program next to the app: it reads the
-//! same saved connections, passwords (Windows Credential Manager), settings and Claude
+//! same saved connections, passwords (the OS keychain), settings and Claude
 //! projects, and works whether or not the app is open.
 
 mod ask;

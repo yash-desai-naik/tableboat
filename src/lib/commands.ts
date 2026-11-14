@@ -11,6 +11,7 @@ import { requestCloseAll, requestCloseOthers, requestCloseTab } from "./tabs";
 import { tableActions } from "./edits";
 import { getSettings, updateSettings, type Density, type Settings, type Theme } from "./settings";
 import { pickTheme, THEMES, themesFor, type ThemeData } from "../themes";
+import { OS_NAME } from "./platform";
 import { shownMode } from "./themeMode";
 import { shutdown as stopClaude } from "./claude";
 
@@ -274,7 +275,7 @@ export function buildCommands(ctx: CommandContext): Command[] {
     { id: "view.zoomIn", category: "View", title: "Zoom In", keys: ["Ctrl+=", "Ctrl+Shift+="], run: () => stepZoom(1) },
     { id: "view.zoomOut", category: "View", title: "Zoom Out", keys: ["Ctrl+-"], run: () => stepZoom(-1) },
     { id: "view.zoomReset", category: "View", title: "Reset Zoom", keys: ["Ctrl+0"], run: () => updateSettings({ uiZoom: 1 }) },
-    theme("system", "Match Windows"),
+    theme("system", `Match ${OS_NAME}`),
     theme("light", "Light"),
     theme("dark", "Dark"),
     {

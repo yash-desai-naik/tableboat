@@ -1,9 +1,15 @@
 # `tb`: Tableboat on the command line
 
-`tb` is a small console program installed next to the app (`%LOCALAPPDATA%\Tableboat\tb.exe`); the
-installer adds that folder to your user PATH, so it works in any **new** terminal. It uses the same
-saved connections, passwords (Windows Credential Manager), settings and Claude projects as the app,
-and works whether or not the app is open.
+`tb` is a small console program installed next to the app. On Windows it is
+`%LOCALAPPDATA%\Tableboat\tb.exe` and the installer adds that folder to your user PATH, so it works in
+any **new** terminal. On macOS it is inside the app bundle; put it on your PATH once with:
+
+```sh
+sudo ln -s /Applications/Tableboat.app/Contents/MacOS/tb /usr/local/bin/tb
+```
+
+It uses the same saved connections, passwords (Windows Credential Manager on Windows, the macOS
+Keychain on macOS), settings and Claude projects as the app, and works whether or not the app is open.
 
 A connection is named by its name, any unique part of it, or its id: `tb tables "local db"`,
 `tb tables mongo`.
@@ -61,7 +67,7 @@ Exit code 1 on any error.
 
 | Key | Values |
 |---|---|
-| `theme` | `system` (follows Windows) · `light` · `dark` |
+| `theme` | `system` (follows the system setting) · `light` · `dark` |
 | `lightTheme` | the theme used in light mode: `tableboat-light` (default), `catppuccin-latte`, `github-light`, `one-light`, `rose-pine-dawn`, `gruvbox-light`, `kanagawa-lotus`, `hc-light` |
 | `darkTheme` | the theme used in dark mode: `tableboat-dark` (default), `catppuccin-mocha`, `tokyo-night`, `github-dark`, `one-dark`, `rose-pine`, `gruvbox-dark`, `kanagawa-wave`, `nord`, `dracula`, `hc-dark` |
 
@@ -93,8 +99,9 @@ tb ask "export my connections to conns.txt"
 Window actions (tabs, the command palette, the editor) only exist in the app's Claude pane; in `tb ask`,
 Claude has the data, connection, settings and export tools.
 
-Claude Code (`claude.exe`) runs in the connection's project folder (`~\.tableboat\sessions\<connection>`,
-shared with the app's Claude pane, including its `CLAUDE.md` notes), with Tableboat's database tools:
+Claude Code (`claude.exe` on Windows, `claude` on macOS) runs in the connection's project folder
+(`~/.tableboat/sessions/<connection>`, shared with the app's Claude pane, including its `CLAUDE.md`
+notes), with Tableboat's database tools:
 
 - **Read freely:** schema, context, read-only queries (the database enforces read-only), the saved
   connections (never their passwords), the settings; testing a connection and opening one in the app.

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { errorText, type SessionInfo } from "../lib/connections";
 import { compactCount, metaApi, OBJECT_KINDS, objectKey, quoteIdent, type DbObject, type ObjectKind } from "../lib/meta";
+import { fmtShortcut } from "../lib/platform";
 import { getSettings, updateSettings, useSettings } from "../lib/settings";
 import { uiActions } from "../lib/ui";
 import { refreshAll } from "../lib/refresh";
@@ -149,7 +150,7 @@ export function Sidebar({ info }: { info: SessionInfo }) {
         { label: "Copy SELECT Statement", onSelect: () => copy(select) },
       );
     }
-    items.push("separator", { label: "Refresh", hint: "Ctrl+R", onSelect: () => refreshAll() });
+    items.push("separator", { label: "Refresh", hint: fmtShortcut("Ctrl+R"), onSelect: () => refreshAll() });
     return items;
   }
 
@@ -217,7 +218,7 @@ export function Sidebar({ info }: { info: SessionInfo }) {
       <div className="sidebar-head">
         <button
           className="db-switch"
-          title="Switch database (Ctrl+K)"
+          title={`Switch database (${fmtShortcut("Ctrl+K")})`}
           onClick={() => uiActions.openDatabasePicker()}
         >
           <DatabaseIcon size={14} />
@@ -230,7 +231,11 @@ export function Sidebar({ info }: { info: SessionInfo }) {
         }}>
           <FilterIcon size={14} />
         </button>
-        <button className="icon-btn small" title="Refresh databases, objects and the open tab (Ctrl+R)" onClick={() => refreshAll()}>
+        <button
+          className="icon-btn small"
+          title={`Refresh databases, objects and the open tab (${fmtShortcut("Ctrl+R")})`}
+          onClick={() => refreshAll()}
+        >
           <RefreshIcon size={14} />
         </button>
       </div>

@@ -1,5 +1,5 @@
 //! Small JSON files the UI keeps between runs (open tabs per connection, last connection),
-//! in `%APPDATA%\Tableboat\state\`. Nothing secret is stored here.
+//! in `<data dir>/state/`. Nothing secret is stored here.
 
 use crate::paths::{data_dir, write_atomic};
 
@@ -88,7 +88,19 @@ pub fn app_paths() -> Result<AppPaths, String> {
     })
 }
 
-/// Open one of Tableboat's folders in File Explorer ("data" or "sessions"); created if missing.
+/// Open a file or folder with the desktop: Explorer, Finder or xdg-open.
+fn open_with_desktop(arg: &std::path::Path) -> Result<(), String> {
+    let program = if cfg!(windows) {
+        "explorer.exe"
+    } else if cfg!(target_os = "macos") {
+        "open"
+    } else {
+        "xdg-open"
+    };
+    std::process::Command::new(program).arg(arg).spawn().map(|_| ()).map_err(|e| e.to_string())
+}
+
+/// Open one of Tableboat's folders in the file manager ("data" or "sessions"); created if missing.
 #[tauri::command]
 pub fn open_app_folder(which: String) -> Result<(), String> {
     let dir = match which.as_str() {
@@ -97,31 +109,34 @@ pub fn open_app_folder(which: String) -> Result<(), String> {
         _ => return Err("Unknown folder.".into()),
     };
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    std::process::Command::new("explorer.exe").arg(&dir).spawn().map_err(|e| e.to_string())?;
-    Ok(())
+    open_with_desktop(&dir)
 }
 
 /// Tableboat's releases on GitHub, in the default browser (a fixed address, nothing from the page).
 #[tauri::command]
 pub fn open_releases_page() -> Result<(), String> {
-    std::process::Command::new("explorer.exe")
-        .arg("https://github.com/yash-desai-naik/tableboat/releases")
-        .spawn()
-        .map(|_| ())
-        .map_err(|e| e.to_string())
+    open_with_desktop(std::path::Path::new("https://github.com/yash-desai-naik/tableboat/releases"))
 }
 
-/// Open settings.json in the user's default editor for .json files (Notepad if none).
+/// Open settings.json in the user's default editor for .json files (Notepad / TextEdit if none).
 #[tauri::command]
 pub fn open_settings_file() -> Result<String, String> {
     let path = data_dir()?.join("settings.json");
+    #[cfg(windows)]
     let status = std::process::Command::new("cmd")
         .args(["/C", "start", "", &path.to_string_lossy()])
         .status();
+    #[cfg(target_os = "macos")]
+    let status = std::process::Command::new("open").arg("-t").arg(&path).status();
+    #[cfg(all(unix, not(target_os = "macos")))]
+    let status = std::process::Command::new("xdg-open").arg(&path).status();
     match status {
         Ok(s) if s.success() => Ok(path.display().to_string()),
         _ => {
+            #[cfg(windows)]
             std::process::Command::new("notepad.exe").arg(&path).spawn().map_err(|e| e.to_string())?;
+            #[cfg(not(windows))]
+            open_with_desktop(&path)?;
             Ok(path.display().to_string())
         }
     }

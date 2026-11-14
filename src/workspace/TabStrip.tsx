@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { activateTab, keepTab, useWorkspace } from "../lib/workspace";
 import { hasPending, useAnyEditVersion } from "../lib/edits";
 import { requestCloseAll, requestCloseOthers, requestCloseTab } from "../lib/tabs";
+import { fmtShortcut } from "../lib/platform";
 import { CloseSmallIcon, CommandIcon } from "../shell/Icons";
 import { KindIcon } from "../shell/KindIcon";
 import { Menu, type MenuItem } from "../shell/Menu";
@@ -99,7 +100,7 @@ export function TabStrip() {
                 x: e.clientX,
                 y: e.clientY,
                 items: [
-                  { label: "Close", hint: "Ctrl+W", onSelect: () => void requestCloseTab(tab.id) },
+                  { label: "Close", hint: fmtShortcut("Ctrl+W"), onSelect: () => void requestCloseTab(tab.id) },
                   { label: "Close Others", onSelect: () => void requestCloseOthers(tab.id) },
                   { label: "Close All", onSelect: () => void requestCloseAll() },
                   ...(tab.preview ? (["separator", { label: "Keep Open", onSelect: () => keepTab(tab.id) }] as MenuItem[]) : []),
@@ -112,7 +113,7 @@ export function TabStrip() {
             {hasPending(tab.id) && <span className="tab-dirty" title="Unsaved changes" />}
             <button
               className="tab-close"
-              title="Close (Ctrl+W)"
+              title={`Close (${fmtShortcut("Ctrl+W")})`}
               onMouseDown={(e) => e.stopPropagation()}
               onClick={() => void requestCloseTab(tab.id)}
             >

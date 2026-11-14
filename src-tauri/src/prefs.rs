@@ -173,7 +173,7 @@ impl Settings {
 }
 
 /// What each setting accepts (for Claude and `tb settings`).
-pub const HELP: &str = "theme: \"system\" | \"light\" | \"dark\" (\"system\" follows Windows)
+pub const HELP: &str = "theme: \"system\" | \"light\" | \"dark\" (\"system\" follows your system setting)
 lightTheme: colour theme used in light mode: \"tableboat-light\" (default) | \"catppuccin-latte\" | \"github-light\" | \"one-light\" | \"rose-pine-dawn\" | \"gruvbox-light\" | \"kanagawa-lotus\" | \"hc-light\"
 darkTheme: colour theme used in dark mode: \"tableboat-dark\" (default) | \"catppuccin-mocha\" | \"tokyo-night\" | \"github-dark\" | \"one-dark\" | \"rose-pine\" | \"gruvbox-dark\" | \"kanagawa-wave\" | \"nord\" | \"dracula\" | \"hc-dark\"
 density: \"compact\" | \"default\" | \"comfortable\"

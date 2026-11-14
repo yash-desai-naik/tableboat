@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { save as saveFile } from "@tauri-apps/plugin-dialog";
 import { errorText } from "../lib/connections";
+import { fmtShortcut } from "../lib/platform";
 import {
   formatElapsed,
   queryApi,
@@ -324,7 +325,7 @@ export function ResultsPane({ tabId, dialect, table, serverSort, onCancel, leadi
         {status && <span className="results-status">{status}</span>}
         <span className="spacer" />
         {run.running && onCancel && (
-          <button className="btn small-btn" onClick={onCancel} title="Cancel (Ctrl+.)">
+          <button className="btn small-btn" onClick={onCancel} title={`Cancel (${fmtShortcut("Ctrl+.")})`}>
             Cancel
           </button>
         )}

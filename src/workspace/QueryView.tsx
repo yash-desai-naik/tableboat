@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { cancelActiveRun, FORMAT_RESULT_EVENT, formatActive, runAll, runCurrent, type FormatResult } from "../editor/actions";
 import { SqlEditor } from "../editor/SqlEditor";
 import type { SessionInfo } from "../lib/connections";
+import { fmtShortcut } from "../lib/platform";
 import { dialectOf, getRunState, isReadOnlyRun, rerunTab, useRunState } from "../lib/query";
 import { onRefresh } from "../lib/refresh";
 import { updateSettings, useSettings } from "../lib/settings";
@@ -41,20 +42,30 @@ export function QueryView({ info, tab }: { info: SessionInfo; tab: QueryTab }) {
   return (
     <div className="query-view" ref={container}>
       <div className="editor-bar">
-        <button className="btn primary small-btn" onClick={runCurrent} disabled={run.running} title="Run the statement under the cursor, or the selection (Ctrl+Enter)">
+        <button
+          className="btn primary small-btn"
+          onClick={runCurrent}
+          disabled={run.running}
+          title={`Run the statement under the cursor, or the selection (${fmtShortcut("Ctrl+Enter")})`}
+        >
           Run current
         </button>
-        <button className="btn small-btn" onClick={runAll} disabled={run.running} title="Run every statement (Ctrl+Shift+Enter)">
+        <button
+          className="btn small-btn"
+          onClick={runAll}
+          disabled={run.running}
+          title={`Run every statement (${fmtShortcut("Ctrl+Shift+Enter")})`}
+        >
           Run all
         </button>
         {run.running && (
-          <button className="btn small-btn" onClick={cancelActiveRun} title="Cancel (Ctrl+.)">
+          <button className="btn small-btn" onClick={cancelActiveRun} title={`Cancel (${fmtShortcut("Ctrl+.")})`}>
             Cancel
           </button>
         )}
         <button
           className="btn small-btn"
-          title="Format the selection or the statement under the cursor (Shift+Alt+F). Ctrl+Shift+Alt+F formats everything."
+          title={`Format the selection or the statement under the cursor (${fmtShortcut("Shift+Alt+F")}). ${fmtShortcut("Ctrl+Shift+Alt+F")} formats everything.`}
           onClick={() => void formatActive()}
         >
           Format
@@ -111,7 +122,7 @@ export function QueryView({ info, tab }: { info: SessionInfo; tab: QueryTab }) {
           dialect={dialectOf(engine)}
           table={null}
           onCancel={cancelActiveRun}
-          emptyText="Ctrl+Enter runs the statement under the cursor · Ctrl+Shift+Enter runs everything"
+          emptyText={`${fmtShortcut("Ctrl+Enter")} runs the statement under the cursor · ${fmtShortcut("Ctrl+Shift+Enter")} runs everything`}
         />
       </div>
     </div>

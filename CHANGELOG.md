@@ -6,6 +6,18 @@ All notable changes to Tableboat are listed here. The format follows
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-14
+
+### Added
+
+- **macOS.** Tableboat runs on macOS 11 or later on Apple Silicon, from a DMG. Passwords are kept in
+  the macOS Keychain, SSH tunnels use the agent in `SSH_AUTH_SOCK` (OpenSSH, 1Password, Secretive…),
+  `tb` works in a terminal, and updates install in place. The title bar uses the system's traffic
+  lights.
+- On macOS, shortcuts use ⌘ instead of Ctrl (⌃⇥ still switches tabs), and the interface says
+  "Match macOS" and "macOS Keychain" where it used to say Windows.
+- On macOS, use the system's dictation where Windows has its Win+H voice typing button.
+
 ## [0.3.1] - 2026-11-14
 
 ### Fixed
@@ -117,7 +129,8 @@ Claude Code built in.
 - Light and dark themes, three densities, zoom, a command palette, and an About box with the
   version, build and data folders.
 
-[Unreleased]: https://github.com/yash-desai-naik/tableboat/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/yash-desai-naik/tableboat/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/yash-desai-naik/tableboat/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/yash-desai-naik/tableboat/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/yash-desai-naik/tableboat/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/yash-desai-naik/tableboat/compare/v0.1.0...v0.2.0

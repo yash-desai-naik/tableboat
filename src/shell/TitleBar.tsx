@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { displayName, tagInfo } from "../lib/connections";
+import { fmtShortcut, IS_MAC } from "../lib/platform";
 import type { SessionState } from "../lib/session";
 import {
   AppMark,
@@ -42,8 +43,9 @@ function readableOn(hex: string): string {
 }
 
 /**
- * Custom 40 px title bar. Empty areas and the connection pill drag the window
- * (and double-click maximises); Windows Aero Snap works by dragging to the edges.
+ * Custom 40 px title bar. Empty areas and the connection pill drag the window (and
+ * double-click maximises). Windows draws its own caption buttons on the right; macOS keeps its
+ * traffic lights on the left, over the bar (see `.titlebar.mac`).
  */
 export function TitleBar(props: TitleBarProps) {
   const { session, sidebarOn, aiOn, onToggleSidebar, onToggleAi, onOpenPalette, onPillClick, onConnections, onConnectionsNewWindow } =
@@ -68,7 +70,7 @@ export function TitleBar(props: TitleBarProps) {
 
   return (
     <header
-      className="titlebar"
+      className={IS_MAC ? "titlebar mac" : "titlebar"}
       data-tauri-drag-region
       style={color ? { borderBottom: `2px solid ${color}` } : undefined}
     >
@@ -76,13 +78,22 @@ export function TitleBar(props: TitleBarProps) {
         <span className="tb-mark" data-tauri-drag-region>
           <AppMark size={16} />
         </span>
-        <button className="icon-btn" title="Toggle sidebar (Ctrl+B)" aria-pressed={sidebarOn} onClick={onToggleSidebar}>
+        <button
+          className="icon-btn"
+          title={`Toggle sidebar (${fmtShortcut("Ctrl+B")})`}
+          aria-pressed={sidebarOn}
+          onClick={onToggleSidebar}
+        >
           <PanelLeftIcon />
         </button>
-        <button className="icon-btn" title="Open or create a connection (Ctrl+Shift+K)" onClick={onConnections}>
+        <button className="icon-btn" title={`Open or create a connection (${fmtShortcut("Ctrl+Shift+K")})`} onClick={onConnections}>
           <PlugIcon />
         </button>
-        <button className="icon-btn" title="Open a connection in a new window (Ctrl+Alt+K)" onClick={onConnectionsNewWindow}>
+        <button
+          className="icon-btn"
+          title={`Open a connection in a new window (${fmtShortcut("Ctrl+Alt+K")})`}
+          onClick={onConnectionsNewWindow}
+        >
           <NewWindowIcon />
         </button>
       </div>
@@ -127,29 +138,32 @@ export function TitleBar(props: TitleBarProps) {
       </div>
 
       <div className="tb-group" data-tauri-drag-region>
-        <button className="icon-btn" title="Show all commands (Ctrl+Shift+P)" onClick={onOpenPalette}>
+        <button className="icon-btn" title={`Show all commands (${fmtShortcut("Ctrl+Shift+P")})`} onClick={onOpenPalette}>
           <CommandIcon />
         </button>
-        <button className="icon-btn" title="Toggle Claude pane (Ctrl+Alt+B)" aria-pressed={aiOn} onClick={onToggleAi}>
+        <button className="icon-btn" title={`Toggle Claude pane (${fmtShortcut("Ctrl+Alt+B")})`} aria-pressed={aiOn} onClick={onToggleAi}>
           <PanelRightIcon />
         </button>
       </div>
 
-      <div className="caption-buttons">
-        <button className="caption-btn" title="Minimize" onClick={() => appWindow.minimize()}>
-          <MinimizeGlyph />
-        </button>
-        <button
-          className="caption-btn"
-          title={maximized ? "Restore Down" : "Maximize"}
-          onClick={() => appWindow.toggleMaximize()}
-        >
-          {maximized ? <RestoreGlyph /> : <MaximizeGlyph />}
-        </button>
-        <button className="caption-btn close" title="Close" onClick={() => appWindow.close()}>
-          <CloseGlyph />
-        </button>
-      </div>
+      {/* macOS draws its own traffic lights on the left; the custom buttons are Windows-only. */}
+      {!IS_MAC && (
+        <div className="caption-buttons">
+          <button className="caption-btn" title="Minimize" onClick={() => appWindow.minimize()}>
+            <MinimizeGlyph />
+          </button>
+          <button
+            className="caption-btn"
+            title={maximized ? "Restore Down" : "Maximize"}
+            onClick={() => appWindow.toggleMaximize()}
+          >
+            {maximized ? <RestoreGlyph /> : <MaximizeGlyph />}
+          </button>
+          <button className="caption-btn close" title="Close" onClick={() => appWindow.close()}>
+            <CloseGlyph />
+          </button>
+        </div>
+      )}
     </header>
   );
 }

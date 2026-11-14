@@ -1,5 +1,5 @@
 //! Saved connection definitions. Passwords are never part of these structs on disk;
-//! they live in Windows Credential Manager (see `secrets.rs`).
+//! they live in the OS keychain (see `secrets.rs`).
 
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;

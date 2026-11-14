@@ -1,9 +1,9 @@
 //! SSH tunnels: a local port on 127.0.0.1 forwarded through the SSH server to the
 //! database host. Supports password, private key (OpenSSH / PEM, RSA / ECDSA / Ed25519,
-//! with passphrase) and agents (Windows OpenSSH agent pipe, which 1Password also uses,
-//! then Pageant).
+//! with passphrase) and agents (on Windows the OpenSSH agent pipe, which 1Password also uses,
+//! then Pageant; elsewhere `SSH_AUTH_SOCK`).
 //!
-//! Host keys are trusted on first use and remembered in `%APPDATA%\Tableboat\known_hosts`;
+//! Host keys are trusted on first use and remembered in `<data dir>/known_hosts`;
 //! a changed key is refused.
 
 use crate::conn::model::{Secrets, SshAuth, SshConfig};
@@ -206,21 +206,40 @@ fn key_error(path: &std::path::Path, secrets: &Secrets, e: russh::keys::Error) -
     }
 }
 
-/// Try every key offered by the Windows OpenSSH agent (also used by 1Password), then Pageant.
+/// Try every key the SSH agent offers: on Windows the OpenSSH agent (also used by 1Password),
+/// then Pageant; on macOS the agent in `SSH_AUTH_SOCK` (OpenSSH, 1Password, Secretive, …).
 async fn agent_login(session: &mut client::Handle<Client>, user: &str) -> Result<bool, String> {
     let hash = session.best_supported_rsa_hash().await.map_err(|e| e.to_string())?.flatten();
     let mut tried_any = false;
 
-    if let Ok(mut agent) =
-        russh::keys::agent::client::AgentClient::connect_named_pipe(r"\\.\pipe\openssh-ssh-agent").await
+    #[cfg(windows)]
     {
-        if let Ok(identities) = agent.request_identities().await {
-            for identity in identities {
-                if let russh::keys::agent::AgentIdentity::PublicKey { key, .. } = identity {
-                    tried_any = true;
-                    if let Ok(result) = session.authenticate_publickey_with(user, key, hash, &mut agent).await {
-                        if result.success() {
-                            return Ok(true);
+        if let Ok(mut agent) =
+            russh::keys::agent::client::AgentClient::connect_named_pipe(r"\\.\pipe\openssh-ssh-agent").await
+        {
+            if let Ok(identities) = agent.request_identities().await {
+                for identity in identities {
+                    if let russh::keys::agent::AgentIdentity::PublicKey { key, .. } = identity {
+                        tried_any = true;
+                        if let Ok(result) = session.authenticate_publickey_with(user, key, hash, &mut agent).await {
+                            if result.success() {
+                                return Ok(true);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if let Ok(mut agent) = russh::keys::agent::client::AgentClient::connect_pageant().await {
+            if let Ok(identities) = agent.request_identities().await {
+                for identity in identities {
+                    if let russh::keys::agent::AgentIdentity::PublicKey { key, .. } = identity {
+                        tried_any = true;
+                        if let Ok(result) = session.authenticate_publickey_with(user, key, hash, &mut agent).await {
+                            if result.success() {
+                                return Ok(true);
+                            }
                         }
                     }
                 }
@@ -228,14 +247,17 @@ async fn agent_login(session: &mut client::Handle<Client>, user: &str) -> Result
         }
     }
 
-    if let Ok(mut agent) = russh::keys::agent::client::AgentClient::connect_pageant().await {
-        if let Ok(identities) = agent.request_identities().await {
-            for identity in identities {
-                if let russh::keys::agent::AgentIdentity::PublicKey { key, .. } = identity {
-                    tried_any = true;
-                    if let Ok(result) = session.authenticate_publickey_with(user, key, hash, &mut agent).await {
-                        if result.success() {
-                            return Ok(true);
+    #[cfg(unix)]
+    {
+        if let Ok(mut agent) = russh::keys::agent::client::AgentClient::connect_env().await {
+            if let Ok(identities) = agent.request_identities().await {
+                for identity in identities {
+                    if let russh::keys::agent::AgentIdentity::PublicKey { key, .. } = identity {
+                        tried_any = true;
+                        if let Ok(result) = session.authenticate_publickey_with(user, key, hash, &mut agent).await {
+                            if result.success() {
+                                return Ok(true);
+                            }
                         }
                     }
                 }
@@ -244,8 +266,13 @@ async fn agent_login(session: &mut client::Handle<Client>, user: &str) -> Result
     }
 
     if !tried_any {
+        #[cfg(windows)]
         return Err("No SSH agent with keys was found. Start the OpenSSH Authentication Agent service \
                     (or 1Password / Pageant) and add your key."
+            .into());
+        #[cfg(not(windows))]
+        return Err("No SSH agent with keys was found. Start ssh-agent (or 1Password, Secretive, …) \
+                    and add your key, so SSH_AUTH_SOCK is set."
             .into());
     }
     Ok(false)

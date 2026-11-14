@@ -14,6 +14,7 @@ import {
 } from "../lib/connections";
 import { ask } from "@tauri-apps/plugin-dialog";
 import { applyEditedConnection, connect, useSession } from "../lib/session";
+import { fmtShortcut, IS_MAC, modPressed } from "../lib/platform";
 import { NewWindowIcon, PencilIcon } from "../shell/Icons";
 import { ConnectionForm } from "./ConnectionForm";
 import { PasswordDialog, UrlDialog } from "./ConnectionList";
@@ -196,7 +197,7 @@ export function ConnectionSwitcher({ initialMode, onClose }: Props) {
             autoFocus
             placeholder={windowFirst ? "Open a connection in a new window…" : "Open a connection…"}
             onKeyDown={(e) => {
-              newWindow.current = e.ctrlKey;
+              newWindow.current = modPressed(e);
               if (e.key === "Escape") {
                 e.preventDefault();
                 onClose();
@@ -250,7 +251,7 @@ export function ConnectionSwitcher({ initialMode, onClose }: Props) {
                       {!windowFirst && (
                         <button
                           className="icon-btn small palette-action"
-                          title="Open in a new window (Ctrl+Enter)"
+                          title={`Open in a new window (${fmtShortcut("Ctrl+Enter")})`}
                           onMouseDown={(e) => e.stopPropagation()}
                           onPointerDown={(e) => e.stopPropagation()}
                           onClick={(e) => {
@@ -282,7 +283,7 @@ export function ConnectionSwitcher({ initialMode, onClose }: Props) {
               <kbd>↵</kbd> {windowFirst ? "New window" : "Open here"}
             </span>
             <span>
-              <kbd>Ctrl</kbd>
+              <kbd>{IS_MAC ? "⌘" : "Ctrl"}</kbd>
               <kbd>↵</kbd> {windowFirst ? "Open here" : "New window"}
             </span>
             <span>

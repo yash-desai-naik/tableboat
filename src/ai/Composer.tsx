@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefO
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { open as openFile } from "@tauri-apps/plugin-dialog";
+import { IS_MAC } from "../lib/platform";
 import { attachPath, imageFromBlob, mentionKey, suggest, type Mention, type Suggestion } from "./mentions";
 
 interface Props {
@@ -23,7 +24,7 @@ function triggerAt(text: string, caret: number): { start: number; query: string 
 
 /**
  * The chat input: "@" adds context (tables, columns, databases, other connections, files,
- * images), images can be pasted or dropped, and the mic starts Windows voice typing.
+ * images), images can be pasted or dropped, and on Windows the mic starts voice typing.
  */
 export function Composer({ inputRef, disabled, placeholder, running, chips, onSend, onStop }: Props) {
   const [draft, setDraft] = useState("");
@@ -283,17 +284,20 @@ export function Composer({ inputRef, disabled, placeholder, running, chips, onSe
           <button className="icon-btn small ai-bar-btn" title="Attach a file or image" onClick={() => void pick({ key: "a:file", group: "", label: "", action: "file" })}>
             <PaperclipIcon />
           </button>
-          <button
-            className="icon-btn small ai-bar-btn"
-            title="Voice typing (Windows: Win+H). Speak, and the words go into the input."
-            disabled={disabled}
-            onClick={() => {
-              inputRef.current?.focus();
-              window.setTimeout(() => void invoke("voice_typing").catch((err) => flash(String(err))), 80);
-            }}
-          >
-            <MicIcon />
-          </button>
+          {/* Windows voice typing (Win+H) can be started from here; macOS dictation has no such call. */}
+          {!IS_MAC && (
+            <button
+              className="icon-btn small ai-bar-btn"
+              title="Voice typing (Win+H). Speak, and the words go into the input."
+              disabled={disabled}
+              onClick={() => {
+                inputRef.current?.focus();
+                window.setTimeout(() => void invoke("voice_typing").catch((err) => flash(String(err))), 80);
+              }}
+            >
+              <MicIcon />
+            </button>
+          )}
           {chips}
           {running ? (
             <button

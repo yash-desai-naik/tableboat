@@ -1,3 +1,5 @@
+import { IS_MAC } from "./platform";
+
 /**
  * Keyboard shortcuts are matched on the physical key (`event.code`), so they work the
  * same on every keyboard layout, and AltGr chords are never treated as shortcuts
@@ -43,20 +45,26 @@ function codeToKey(code: string): string | null {
   return CODE_TO_KEY[code] ?? null;
 }
 
-/** "Ctrl+Shift+P" style name for a key event, or null if it can't be a shortcut. */
+/**
+ * "Ctrl+Shift+P" style name for a key event, or null if it can't be a shortcut. "Ctrl" means
+ * the primary modifier: Ctrl on Windows, Command on macOS. Ctrl+Tab (and PageUp/PageDown) stay
+ * Control on macOS, because Command+Tab belongs to the system.
+ */
 export function comboFromEvent(e: KeyboardEvent): string | null {
   if (e.getModifierState("AltGraph")) return null;
   const key = codeToKey(e.code);
   if (!key) return null;
+  const tabKey = key === "Tab" || key === "PageUp" || key === "PageDown";
+  const primary = IS_MAC ? (tabKey ? e.ctrlKey : e.metaKey) : e.ctrlKey;
   const parts: string[] = [];
-  if (e.ctrlKey) parts.push("Ctrl");
+  if (primary) parts.push("Ctrl");
   if (e.shiftKey) parts.push("Shift");
   if (e.altKey) parts.push("Alt");
   parts.push(key);
   return parts.join("+");
 }
 
-/** Browser shortcuts WebView2 would otherwise act on (print, reload, find, view source...). */
+/** Browser shortcuts the WebView would otherwise act on (print, reload, find, view source...). */
 const BROWSER_RESERVED = new Set([
   "Ctrl+P",
   "Ctrl+Shift+P",
@@ -85,9 +93,15 @@ export function isBrowserReserved(combo: string): boolean {
   return BROWSER_RESERVED.has(combo);
 }
 
-/** Split "Ctrl+Shift+P" into keycap labels. */
+/** Split "Ctrl+Shift+P" into keycap labels (⌘ ⇧ P on macOS). */
 export function comboParts(combo: string): string[] {
-  return combo.split("+").map((part) =>
-    part === "Up" ? "↑" : part === "Down" ? "↓" : part === "Left" ? "←" : part === "Right" ? "→" : part,
-  );
+  const tabKey = combo.includes("+Tab") || combo.includes("+PageUp") || combo.includes("+PageDown");
+  return combo.split("+").map((part) => {
+    if (IS_MAC) {
+      if (part === "Ctrl") return tabKey ? "⌃" : "⌘";
+      if (part === "Shift") return "⇧";
+      if (part === "Alt") return "⌥";
+    }
+    return part === "Up" ? "↑" : part === "Down" ? "↓" : part === "Left" ? "←" : part === "Right" ? "→" : part;
+  });
 }

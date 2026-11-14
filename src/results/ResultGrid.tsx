@@ -14,6 +14,7 @@ import {
 } from "@glideapps/glide-data-grid";
 import "@glideapps/glide-data-grid/dist/index.css";
 import { errorText } from "../lib/connections";
+import { fmtShortcut, modPressed } from "../lib/platform";
 import {
   addRow,
   deleteRows,
@@ -468,8 +469,8 @@ export function ResultGrid({ info, rowCount, dialect, table, sort, onSort, versi
               ? ([{ label: "Set DEFAULT", onSelect: () => setCells({ kind: "default" }) }] as MenuItem[])
               : []),
           "separator",
-          { label: "Add Row", hint: "Ctrl+I", onSelect: () => addRow(edit.tabId, edit.ctx) },
-          { label: "Duplicate Row(s)", hint: "Ctrl+D", onSelect: () => void duplicate() },
+          { label: "Add Row", hint: fmtShortcut("Ctrl+I"), onSelect: () => addRow(edit.tabId, edit.ctx) },
+          { label: "Duplicate Row(s)", hint: fmtShortcut("Ctrl+D"), onSelect: () => void duplicate() },
           { label: "Delete Row(s)", hint: "Delete", danger: true, onSelect: () => void remove() },
           "separator",
         ]
@@ -479,8 +480,13 @@ export function ResultGrid({ info, rowCount, dialect, table, sort, onSort, versi
       y,
       items: [
         ...editItems,
-        { label: "Copy", hint: "Ctrl+C", disabled: !hasSel, onSelect: () => void copy("tsv") },
-        { label: "Copy with Headers", hint: "Ctrl+Shift+C", disabled: !hasSel, onSelect: () => void copy("tsv-header") },
+        { label: "Copy", hint: fmtShortcut("Ctrl+C"), disabled: !hasSel, onSelect: () => void copy("tsv") },
+        {
+          label: "Copy with Headers",
+          hint: fmtShortcut("Ctrl+Shift+C"),
+          disabled: !hasSel,
+          onSelect: () => void copy("tsv-header"),
+        },
         "separator",
         { label: "Copy as CSV", disabled: !hasSel, onSelect: () => void copy("csv-header") },
         { label: "Copy as JSON", disabled: !hasSel, onSelect: () => void copy("json") },
@@ -502,15 +508,15 @@ export function ResultGrid({ info, rowCount, dialect, table, sort, onSort, versi
       onKeyDownCapture={(e) => {
         // Keys typed into the cell editor are not grid shortcuts.
         if ((e.target as HTMLElement).closest("textarea, input")) return;
-        if (e.ctrlKey && !e.altKey && e.code === "KeyC") {
+        if (modPressed(e) && !e.altKey && e.code === "KeyC") {
           e.preventDefault();
           e.stopPropagation();
           void copy(e.shiftKey ? "tsv-header" : "tsv");
-        } else if (edit && e.ctrlKey && !e.altKey && !e.shiftKey && e.code === "KeyD") {
+        } else if (edit && modPressed(e) && !e.altKey && !e.shiftKey && e.code === "KeyD") {
           e.preventDefault();
           e.stopPropagation();
           void duplicate();
-        } else if (edit && !e.ctrlKey && !e.altKey && e.key === "Delete") {
+        } else if (edit && !modPressed(e) && !e.altKey && e.key === "Delete") {
           e.preventDefault();
           e.stopPropagation();
           void remove();
@@ -614,7 +620,7 @@ function toRanges(sorted: number[]): [number, number][] {
   return out;
 }
 
-/** Windows' clipboard can be briefly locked by another app; retry a few times. */
+/** The clipboard can be briefly locked by another app (or the WebView needs a moment); retry a few times. */
 async function writeClipboard(text: string) {
   for (let attempt = 0; ; attempt++) {
     try {

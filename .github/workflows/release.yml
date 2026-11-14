@@ -1,11 +1,12 @@
-# Builds the Windows installer when a version tag (v1.2.3) is pushed, and creates a DRAFT
-# GitHub release with the installer, its SHA-256 checksum, release notes taken from
-# CHANGELOG.md, and the update feed (latest.json + the installer's signature) that installed
-# copies of Tableboat check. Review the draft on GitHub, then publish it: only then do
-# installed copies see the update.
+# Builds the Windows installer and the macOS app when a version tag (v1.2.3) is pushed, and
+# creates a DRAFT GitHub release with both downloads, their SHA-256 checksums, release notes taken
+# from CHANGELOG.md, and the update feed (latest.json + each platform's signature) that installed
+# copies of Tableboat check. Review the draft on GitHub, then publish it: only then do installed
+# copies see the update.
 #
 # Needs the repository secret TAURI_SIGNING_PRIVATE_KEY (the updater key; see
-# docs/DEVELOPMENT.md).
+# docs/DEVELOPMENT.md). The macOS app is not signed with an Apple Developer ID or notarized yet:
+# it is ad-hoc signed so it runs on Apple Silicon, and the release notes explain Gatekeeper.
 name: Release
 
 on:
@@ -16,35 +17,60 @@ permissions:
   contents: write
 
 jobs:
-  windows:
-    runs-on: windows-latest
-    timeout-minutes: 60
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Check the tag matches the version in every file
-        shell: pwsh
+        id: version
         run: |
-          $v = "${{ github.ref_name }}".TrimStart('v')
-          $conf = (Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
-          $pkg = (Get-Content package.json -Raw | ConvertFrom-Json).version
-          $cargo = (Select-String -Path src-tauri/Cargo.toml -Pattern '^version = "(.+)"' | Select-Object -First 1).Matches[0].Groups[1].Value
-          if ($conf -ne $v -or $pkg -ne $v -or $cargo -ne $v) {
-            Write-Error "Tag v$v, but tauri.conf.json says $conf, package.json $pkg, Cargo.toml $cargo."
+          v="${GITHUB_REF_NAME#v}"
+          conf=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          pkg=$(node -p "require('./package.json').version")
+          cargo=$(sed -n 's/^version = "\(.*\)"/\1/p' src-tauri/Cargo.toml | head -1)
+          if [ "$conf" != "$v" ] || [ "$pkg" != "$v" ] || [ "$cargo" != "$v" ]; then
+            echo "Tag v$v, but tauri.conf.json says $conf, package.json $pkg, Cargo.toml $cargo."
             exit 1
-          }
-          "VERSION=$v" >> $env:GITHUB_ENV
+          fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
 
       - name: Take the release notes from CHANGELOG.md
-        shell: pwsh
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
-          $text = (Get-Content CHANGELOG.md -Raw) -replace "`r`n", "`n"
-          $m = [regex]::Match($text, "(?ms)^## \[$([regex]::Escape($env:VERSION))\][^\n]*\n(.*?)(?=^## \[|^\[[^\]]+\]: |\z)")
-          if (-not $m.Success -or -not $m.Groups[1].Value.Trim()) {
-            Write-Error "CHANGELOG.md has no section '## [$env:VERSION]'."
-            exit 1
+          node - <<'JS'
+          const fs = require("fs");
+          const v = process.env.VERSION;
+          const text = fs.readFileSync("CHANGELOG.md", "utf8").replace(/\r\n/g, "\n");
+          const start = text.indexOf(`## [${v}]`);
+          if (start < 0) {
+            console.error(`CHANGELOG.md has no section '## [${v}]'.`);
+            process.exit(1);
           }
-          Set-Content -Path "$env:RUNNER_TEMP/changelog-section.md" -Value $m.Groups[1].Value.Trim() -Encoding utf8 -NoNewline
+          const rest = text.slice(text.indexOf("\n", start) + 1);
+          const end = rest.match(/\n## \[|\n\[[^\]]+\]: /);
+          const body = (end ? rest.slice(0, end.index) : rest).trim();
+          if (!body) {
+            console.error(`The '## [${v}]' section of CHANGELOG.md is empty.`);
+            process.exit(1);
+          }
+          fs.writeFileSync(`${process.env.RUNNER_TEMP}/changelog-section.md`, body);
+          JS
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: notes
+          path: ${{ runner.temp }}/changelog-section.md
+
+  windows:
+    needs: check
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
@@ -65,48 +91,157 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: npx tauri build --config src-tauri/tauri.release.conf.json
 
-      - name: Checksum and release notes
+      - name: Collect the installer and its updater signature
         shell: pwsh
         run: |
-          $file = "Tableboat_$($env:VERSION)_x64-setup.exe"
-          Copy-Item "src-tauri/target/release/bundle/nsis/$file" $file
-          $sha = (Get-FileHash $file -Algorithm SHA256).Hash.ToLower()
-          Set-Content -Path SHA256SUMS.txt -Value "$sha  $file" -Encoding ascii
-          $footer = (Get-Content .github/release-footer.md -Raw).
-            Replace('{version}', $env:VERSION).Replace('{file}', $file).
-            Replace('{sha256}', $sha).Replace('{repo}', '${{ github.repository }}')
-          Set-Content -Path release-notes.md -Value ((Get-Content "$env:RUNNER_TEMP/changelog-section.md" -Raw) + "`n`n" + $footer) -Encoding utf8
+          $v = "${{ needs.check.outputs.version }}"
+          $file = "Tableboat_${v}_x64-setup.exe"
+          $dir = "src-tauri/target/release/bundle/nsis"
+          Copy-Item "$dir/$file" $file
+          if (-not (Test-Path "$dir/$file.sig")) { Write-Error "No updater signature: is TAURI_SIGNING_PRIVATE_KEY set?"; exit 1 }
+          Copy-Item "$dir/$file.sig" "$file.sig"
 
-          # The update feed: version, notes, and the signed installer for installed copies.
-          $sigPath = "src-tauri/target/release/bundle/nsis/$file.sig"
-          if (-not (Test-Path $sigPath)) { Write-Error "No updater signature ($sigPath): is the TAURI_SIGNING_PRIVATE_KEY secret set?"; exit 1 }
-          Copy-Item $sigPath "$file.sig"
-          $feed = [ordered]@{
-            version   = $env:VERSION
-            notes     = (Get-Content "$env:RUNNER_TEMP/changelog-section.md" -Raw)
-            pub_date  = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
-            platforms = [ordered]@{
-              "windows-x86_64" = [ordered]@{
-                signature = (Get-Content $sigPath -Raw).Trim()
-                url       = "https://github.com/${{ github.repository }}/releases/download/v$($env:VERSION)/$file"
-              }
-            }
-          }
-          Set-Content -Path latest.json -Value ($feed | ConvertTo-Json -Depth 5) -Encoding utf8NoBOM
-          "FILE=$file" >> $env:GITHUB_ENV
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: |
+            Tableboat_*_x64-setup.exe
+            Tableboat_*_x64-setup.exe.sig
+
+  macos:
+    needs: check
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: npm ci
+
+      - name: Build the app, tb, the DMG and the signed updater archive
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: npx tauri build --target aarch64-apple-darwin --config src-tauri/tauri.release.conf.json
+
+      - name: Collect the DMG and the updater archive
+        run: |
+          set -euo pipefail
+          v="${{ needs.check.outputs.version }}"
+          out="src-tauri/target/aarch64-apple-darwin/release/bundle"
+          dmg="$out/dmg/Tableboat_${v}_aarch64.dmg"
+          app="$out/macos/Tableboat.app.tar.gz"
+          test -f "$dmg" || { echo "No DMG at $dmg"; exit 1; }
+          test -f "$app.sig" || { echo "No updater signature: is TAURI_SIGNING_PRIVATE_KEY set?"; exit 1; }
+          cp "$dmg" .
+          cp "$app" "Tableboat_${v}_aarch64.app.tar.gz"
+          cp "$app.sig" "Tableboat_${v}_aarch64.app.tar.gz.sig"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-app
+          path: |
+            Tableboat_*_aarch64.dmg
+            Tableboat_*_aarch64.app.tar.gz
+            Tableboat_*_aarch64.app.tar.gz.sig
+
+  release:
+    needs: [check, windows, macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: notes
+          path: notes
+
+      - name: Checksums, release notes and the update feed
+        env:
+          VERSION: ${{ needs.check.outputs.version }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          mv artifacts/windows-installer/* out/
+          mv artifacts/macos-app/* out/
+          cd out
+          shasum -a 256 * > SHA256SUMS.txt
+
+          node - <<'JS'
+          const fs = require("fs");
+          const v = process.env.VERSION;
+          const repo = process.env.REPO;
+          const section = fs.readFileSync("${{ github.workspace }}/notes/changelog-section.md", "utf8").trim();
+          const exe = `Tableboat_${v}_x64-setup.exe`;
+          const dmg = `Tableboat_${v}_aarch64.dmg`;
+          const app = `Tableboat_${v}_aarch64.app.tar.gz`;
+
+          const sums = Object.fromEntries(
+            fs.readFileSync("SHA256SUMS.txt", "utf8").trim().split("\n").map((line) => {
+              const [hash, file] = line.trim().split(/\s+/);
+              return [file.replace(/^\*/, ""), hash];
+            }),
+          );
+          const footer = fs.readFileSync("${{ github.workspace }}/.github/release-footer.md", "utf8")
+            .replace(/{version}/g, v)
+            .replace(/{repo}/g, repo)
+            .replace(/{sha256-mac}/g, sums[dmg])
+            .replace(/{sha256}/g, sums[exe]);
+          fs.writeFileSync("release-notes.md", `${section}\n\n${footer}`);
+
+          const sig = (name) => fs.readFileSync(name, "utf8").trim();
+          const base = `https://github.com/${repo}/releases/download/v${v}`;
+          const feed = {
+            version: v,
+            notes: section,
+            pub_date: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
+            platforms: {
+              "windows-x86_64": { signature: sig(`${exe}.sig`), url: `${base}/${exe}` },
+              "darwin-aarch64": { signature: sig(`${app}.sig`), url: `${base}/${app}` },
+            },
+          };
+          fs.writeFileSync("latest.json", JSON.stringify(feed, null, 2) + "\n");
+          JS
 
       - name: Create the draft release
-        shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $tag = "${{ github.ref_name }}"
-          gh release view $tag 2>$null | Out-Null
-          if ($LASTEXITCODE -eq 0) {
+          set -euo pipefail
+          tag="${{ github.ref_name }}"
+          v="${{ needs.check.outputs.version }}"
+          files=(
+            "out/Tableboat_${v}_x64-setup.exe"
+            "out/Tableboat_${v}_x64-setup.exe.sig"
+            "out/Tableboat_${v}_aarch64.dmg"
+            "out/Tableboat_${v}_aarch64.app.tar.gz"
+            "out/Tableboat_${v}_aarch64.app.tar.gz.sig"
+            "out/SHA256SUMS.txt"
+            "out/latest.json"
+          )
+          if gh release view "$tag" >/dev/null 2>&1; then
             # Re-run of the same tag: replace the files and notes.
-            gh release upload $tag $env:FILE "$env:FILE.sig" SHA256SUMS.txt latest.json --clobber
-            gh release edit $tag --notes-file release-notes.md
-          } else {
-            gh release create $tag $env:FILE "$env:FILE.sig" SHA256SUMS.txt latest.json --draft --verify-tag `
-              --title "Tableboat $env:VERSION" --notes-file release-notes.md
-          }
+            gh release upload "$tag" "${files[@]}" --clobber
+            gh release edit "$tag" --notes-file out/release-notes.md
+          else
+            gh release create "$tag" "${files[@]}" --draft --verify-tag \
+              --title "Tableboat ${{ needs.check.outputs.version }}" \
+              --notes-file out/release-notes.md
+          fi

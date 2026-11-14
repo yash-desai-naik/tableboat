@@ -7,3 +7,9 @@ src-tauri/gen/
 
 # Private research notes and third-party screenshots (kept locally, not published)
 docs/research/
+
+# Icon variants `tauri icon` makes for platforms Tableboat doesn't ship (only Windows and macOS)
+src-tauri/icons/ios/
+src-tauri/icons/android/
+src-tauri/icons/Square*.png
+src-tauri/icons/StoreLogo.png

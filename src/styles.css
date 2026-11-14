@@ -362,6 +362,11 @@ body.resizing * {
   padding-left: 8px;
 }
 
+/* macOS: room for the traffic lights, which sit over the top-left of the window. */
+.titlebar.mac {
+  padding-left: 84px;
+}
+
 .tb-group {
   flex: none;
   display: flex;

@@ -7,6 +7,7 @@ import { api, type SessionInfo } from "./lib/connections";
 import { buildCommands, type Command } from "./lib/commands";
 import { publishCommands } from "./lib/agentBridge";
 import { comboFromEvent, isBrowserReserved } from "./lib/keys";
+import { fmtShortcut } from "./lib/platform";
 import { disconnect, useSession } from "./lib/session";
 import { updateSettings, useSettings, type Settings } from "./lib/settings";
 import { uiActions } from "./lib/ui";
@@ -112,9 +113,13 @@ export function App() {
           { label: "Edit Connection…", onSelect: () => setSwitcher("edit") },
           "separator",
           { label: "Open in New Window", onSelect: () => void api.newWindow(session.info.connection.id) },
-          { label: "Open Another Connection in New Window…", hint: "Ctrl+Alt+K", onSelect: () => setSwitcher("window") },
+          {
+            label: "Open Another Connection in New Window…",
+            hint: fmtShortcut("Ctrl+Alt+K"),
+            onSelect: () => setSwitcher("window"),
+          },
           "separator",
-          { label: "Switch Connection…", hint: "Ctrl+Shift+K", onSelect: () => setSwitcher("list") },
+          { label: "Switch Connection…", hint: fmtShortcut("Ctrl+Shift+K"), onSelect: () => setSwitcher("list") },
           { label: "New Connection…", onSelect: () => setSwitcher("new") },
           "separator",
           { label: "Disconnect", onSelect: () => void disconnect() },
@@ -297,7 +302,7 @@ function useShortcuts(commands: Command[]) {
         // Let the SQL editor handle its own keys (find, select next occurrence, …).
         return;
       } else if (isBrowserReserved(combo)) {
-        // Stop WebView2 from printing, reloading or opening its find bar.
+        // Stop the WebView from printing, reloading or opening its find bar.
         e.preventDefault();
       }
     };

@@ -82,8 +82,8 @@ struct Progress {
     total: Option<u64>,
 }
 
-/// Download, verify and install the pending update. On Windows the installer takes over:
-/// Tableboat closes and starts again on the new version when it's done.
+/// Download, verify and install the pending update, and start the new version. On Windows the
+/// installer takes over; on macOS Tableboat replaces its own app bundle and restarts.
 #[tauri::command]
 pub async fn update_install(app: AppHandle) -> Result<(), String> {
     let state = app.state::<UpdateState>();
@@ -114,7 +114,15 @@ pub async fn update_install(app: AppHandle) -> Result<(), String> {
         )
         .await;
     *state.installing.lock().unwrap() = false;
-    result.map_err(|e| format!("The update couldn't be installed: {e}"))
+    if let Err(e) = result {
+        return Err(format!("The update couldn't be installed: {e}"));
+    }
+    // The installer restarts the app on Windows; on macOS the app bundle was replaced in place,
+    // so start the new version ourselves.
+    #[cfg(not(windows))]
+    app.restart();
+    #[allow(unreachable_code)]
+    Ok(())
 }
 
 /// Check in the background ~20 s after start-up, then once a day, while "Check for updates

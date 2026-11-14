@@ -17,6 +17,7 @@ import {
   type TableColumn,
 } from "../lib/edits";
 import { quoteIdent } from "../lib/meta";
+import { fmtShortcut } from "../lib/platform";
 import { dialectOf, queryApi, runForTab, useRunState } from "../lib/query";
 import { useSettings } from "../lib/settings";
 import type { ObjectTab } from "../lib/workspace";
@@ -327,10 +328,10 @@ function TableData({ info, tab, switcher }: { info: SessionInfo; tab: ObjectTab;
       {switcher}
       {ctx ? (
         <div className="tool-group">
-          <button className="icon-btn" onClick={() => addRow(tab.id, ctx)} title="Add a row (Ctrl+I)">
+          <button className="icon-btn" onClick={() => addRow(tab.id, ctx)} title={`Add a row (${fmtShortcut("Ctrl+I")})`}>
             <PlusIcon />
           </button>
-          <button className="icon-btn" onClick={() => void duplicate()} title="Duplicate the selected rows (Ctrl+D)">
+          <button className="icon-btn" onClick={() => void duplicate()} title={`Duplicate the selected rows (${fmtShortcut("Ctrl+D")})`}>
             <DuplicateIcon />
           </button>
           <button className="icon-btn danger" onClick={() => void remove()} title="Delete the selected rows (Delete); press again to undo">
@@ -350,10 +351,19 @@ function TableData({ info, tab, switcher }: { info: SessionInfo; tab: ObjectTab;
           <button className="btn small-btn" onClick={() => void showPreview()} title="Show the SQL that Save will run">
             Preview
           </button>
-          <button className="btn small-btn" onClick={() => discardPending(tab.id)} title="Throw away all unsaved changes (Ctrl+Shift+Delete)">
+          <button
+            className="btn small-btn"
+            onClick={() => discardPending(tab.id)}
+            title={`Throw away all unsaved changes (${fmtShortcut("Ctrl+Shift+Delete")})`}
+          >
             Discard
           </button>
-          <button className="btn primary small-btn" disabled={saving} onClick={() => void save()} title="Save every change in one transaction (Ctrl+S)">
+          <button
+            className="btn primary small-btn"
+            disabled={saving}
+            onClick={() => void save()}
+            title={`Save every change in one transaction (${fmtShortcut("Ctrl+S")})`}
+          >
             {saving ? "Saving…" : `Save ${count}`}
           </button>
         </div>
@@ -364,7 +374,12 @@ function TableData({ info, tab, switcher }: { info: SessionInfo; tab: ObjectTab;
   // Toolbar, right (before Export): reload and open as SQL.
   const tools = (
     <>
-      <button className="icon-btn" disabled={run.running} onClick={() => void go(offset)} title="Reload this page (Ctrl+R)">
+      <button
+        className="icon-btn"
+        disabled={run.running}
+        onClick={() => void go(offset)}
+        title={`Reload this page (${fmtShortcut("Ctrl+R")})`}
+      >
         <RefreshIcon />
       </button>
       <button className="icon-btn" onClick={() => openQuery(`${buildSql(offset, sort)};`)} title="Open this query in a SQL tab">

@@ -607,11 +607,19 @@ pub async fn dump(ctx: &Ctx, a: DumpArgs) -> Result<ExitCode, String> {
 
 // ---------- app, settings, version ----------
 
-/// The app's exe next to `tb` (both are installed in the same folder).
+/// The app's program next to `tb` (both are installed in the same folder; on macOS that is
+/// `Tableboat.app/Contents/MacOS/`).
 fn app_exe() -> Result<std::path::PathBuf, String> {
     let me = std::env::current_exe().map_err(|e| e.to_string())?;
-    let exe = me.with_file_name("tableboat.exe");
-    if exe.is_file() { Ok(exe) } else { Err(format!("Tableboat wasn't found next to tb ({}).", exe.display())) }
+    // The bundle renames the app to "Tableboat"; a local build (target/debug) keeps "tableboat".
+    let names: &[&str] = if cfg!(windows) { &["tableboat.exe"] } else { &["Tableboat", "tableboat"] };
+    for name in names {
+        let exe = me.with_file_name(name);
+        if exe.is_file() {
+            return Ok(exe);
+        }
+    }
+    Err(format!("Tableboat wasn't found next to tb ({}).", me.with_file_name(names[0]).display()))
 }
 
 /// Start the app (on a connection); a running app opens it in a new window.

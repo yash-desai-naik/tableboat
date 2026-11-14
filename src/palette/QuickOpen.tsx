@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Command as Cmdk } from "cmdk";
 import { errorText } from "../lib/connections";
 import { metaApi, OBJECT_KINDS, objectKey, type Hit } from "../lib/meta";
+import { modPressed } from "../lib/platform";
 import { openObject, setDatabase, useWorkspace } from "../lib/workspace";
 import { Highlighted, KindIcon } from "../shell/KindIcon";
 
@@ -52,7 +53,7 @@ export function QuickOpen({ sessionId, onClose }: Props) {
             onValueChange={setQuery}
             placeholder="Go to table, view, function or trigger…"
             onKeyDown={(e) => {
-              newTab.current = e.ctrlKey;
+              newTab.current = modPressed(e);
               if (e.key === "Escape") {
                 e.preventDefault();
                 if (query) setQuery("");

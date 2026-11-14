@@ -1,4 +1,5 @@
-//! Claude Code (`claude.exe`) helpers shared by the app's Claude pane and `tb ask`.
+//! Claude Code (`claude.exe` on Windows, `claude` on macOS) helpers shared by the app's Claude
+//! pane and `tb ask`.
 //!
 //! Each connection is its own Claude Code project: `~/.tableboat/sessions/<connection>/`. So its
 //! chats, its CLAUDE.md notes and Claude Code's memory for it stay separate from other
@@ -26,8 +27,10 @@ pub struct AiContext {
 /// Where the per-connection project folders live: `~/.tableboat/sessions` (the user's profile,
 /// so the app works the same on any PC).
 pub fn sessions_base() -> PathBuf {
-    let home = std::env::var_os("USERPROFILE").or_else(|| std::env::var_os("HOME")).map(PathBuf::from);
-    home.unwrap_or_else(|| PathBuf::from(".")).join(".tableboat").join("sessions")
+    crate::paths::home_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join(".tableboat")
+        .join("sessions")
 }
 
 /// A folder name from a connection name: letters, digits, '.', '_' and '-' only.
@@ -111,36 +114,85 @@ pub fn prepare_folder(folder: &Path, connection_name: Option<&str>, engine: Opti
     Ok(())
 }
 
-/// `claude.exe` on PATH or in the default install folder.
+/// The Claude Code program on PATH or in a usual install folder.
 pub fn find_claude() -> Option<PathBuf> {
+    let names: &[&str] = if cfg!(windows) { &["claude.exe", "claude.cmd"] } else { &["claude"] };
     if let Some(path) = std::env::var_os("PATH") {
-        for dir in std::env::split_paths(&path) {
-            for name in ["claude.exe", "claude.cmd"] {
-                let p = dir.join(name);
-                if p.is_file() {
-                    return Some(p);
-                }
+        if let Some(found) = find_in(&path, names) {
+            return Some(found);
+        }
+    }
+    // A macOS app started from the Dock or Finder gets the system's minimal PATH, not the
+    // user's: ask their login shell where things really are (once per run).
+    #[cfg(target_os = "macos")]
+    if let Some(path) = login_shell_path() {
+        if let Some(found) = find_in(&path, names) {
+            return Some(found);
+        }
+    }
+    // Well-known places, for installs that aren't on any PATH here.
+    let home = crate::paths::home_dir();
+    let exe = names[0];
+    let mut candidates: Vec<PathBuf> = Vec::new();
+    if let Some(home) = &home {
+        candidates.push(home.join(".local/bin").join(exe));
+        candidates.push(home.join(".claude/local").join(exe));
+        candidates.push(home.join(".bun/bin").join(exe));
+        candidates.push(home.join(".volta/bin").join(exe));
+    }
+    if cfg!(target_os = "macos") {
+        candidates.push(PathBuf::from("/opt/homebrew/bin").join(exe));
+        candidates.push(PathBuf::from("/usr/local/bin").join(exe));
+    }
+    candidates.into_iter().find(|p| p.is_file())
+}
+
+/// Each folder on `path`, looking for one of `names`.
+fn find_in(path: &std::ffi::OsStr, names: &[&str]) -> Option<PathBuf> {
+    for dir in std::env::split_paths(path) {
+        for name in names {
+            let p = dir.join(name);
+            if p.is_file() {
+                return Some(p);
             }
         }
     }
-    let fallback = PathBuf::from(std::env::var_os("USERPROFILE")?).join(r".local\bin\claude.exe");
-    fallback.is_file().then_some(fallback)
+    None
 }
 
-pub const NOT_INSTALLED: &str =
-    "Claude Code (claude.exe) wasn't found. Install it from https://claude.com/claude-code and sign in once in a terminal.";
+/// The PATH of the user's login shell (macOS apps don't inherit it). Empty when the shell
+/// can't be asked, e.g. in a sandbox.
+#[cfg(target_os = "macos")]
+fn login_shell_path() -> Option<std::ffi::OsString> {
+    use std::sync::OnceLock;
+    static CACHE: OnceLock<Option<std::ffi::OsString>> = OnceLock::new();
+    CACHE
+        .get_or_init(|| {
+            let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".into());
+            let out = std::process::Command::new(shell).args(["-l", "-c", "printf %s \"$PATH\""]).output().ok()?;
+            if !out.status.success() {
+                return None;
+            }
+            let path = String::from_utf8(out.stdout).ok()?;
+            (!path.trim().is_empty()).then(|| std::ffi::OsString::from(path))
+        })
+        .clone()
+}
+
+pub const NOT_INSTALLED: &str = "Claude Code (claude) wasn't found. Install it from \
+    https://claude.com/claude-code and sign in once in a terminal.";
 
 /// Claude Code keeps a project's sessions in ~/.claude/projects/<path with non-alphanumerics as '-'>.
 pub fn sessions_store(folder: &Path) -> Option<PathBuf> {
     let encoded: String =
         folder.to_string_lossy().chars().map(|c| if c.is_ascii_alphanumeric() { c } else { '-' }).collect();
-    Some(PathBuf::from(std::env::var_os("USERPROFILE")?).join(".claude").join("projects").join(encoded))
+    Some(crate::paths::home_dir()?.join(".claude").join("projects").join(encoded))
 }
 
 /// The "model" entry of Claude Code's user settings, if any.
 pub fn default_model() -> Option<String> {
-    let home = std::env::var_os("USERPROFILE").or_else(|| std::env::var_os("HOME"))?;
-    let text = std::fs::read_to_string(Path::new(&home).join(".claude").join("settings.json")).ok()?;
+    let home = crate::paths::home_dir()?;
+    let text = std::fs::read_to_string(home.join(".claude").join("settings.json")).ok()?;
     let value: serde_json::Value = serde_json::from_str(&text).ok()?;
     let model = value.get("model")?.as_str()?.trim();
     (!model.is_empty()).then(|| model.to_string())

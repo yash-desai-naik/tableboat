@@ -54,7 +54,7 @@ export function pickTheme(mode: ThemeMode, chosen: string | undefined): ThemeDat
   return t && t.mode === mode ? t : themeById(DEFAULT_THEME[mode])!;
 }
 
-/** The theme the settings call for: mode from `theme` (`system` follows Windows), then that mode's pick. */
+/** The theme the settings call for: mode from `theme` (`system` follows the OS), then that mode's pick. */
 export function resolveTheme(settings: Pick<Settings, "theme" | "lightTheme" | "darkTheme">, prefersDark: boolean): ThemeData {
   const mode: ThemeMode = settings.theme === "system" ? (prefersDark ? "dark" : "light") : settings.theme;
   return pickTheme(mode, mode === "dark" ? settings.darkTheme : settings.lightTheme);

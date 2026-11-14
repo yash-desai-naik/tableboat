@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { errorText } from "../lib/connections";
 import { metaApi, OBJECT_KINDS } from "../lib/meta";
+import { fmtShortcut } from "../lib/platform";
 import type { ObjectTab } from "../lib/workspace";
 import { KindIcon } from "../shell/KindIcon";
 import { onRefresh } from "../lib/refresh";
@@ -40,7 +41,11 @@ export function ObjectView({ sessionId, tab }: { sessionId: string; tab: ObjectT
           {kind} in {tab.database}
         </span>
         <span className="spacer" />
-        <button className="btn" onClick={() => setTick((t) => t + 1)} title="Load the definition again (Ctrl+R refreshes everything)">
+        <button
+          className="btn"
+          onClick={() => setTick((t) => t + 1)}
+          title={`Load the definition again (${fmtShortcut("Ctrl+R")} refreshes everything)`}
+        >
           Refresh
         </button>
         <button

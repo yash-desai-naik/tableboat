@@ -1,7 +1,7 @@
 # Tableboat – v1 scope
 
 A deliberately small database client. It keeps the parts of TablePlus and VS Code you actually use, and nothing else.
-Built with Tauri 2 (Rust backend, WebView2 UI). Name, icons and artwork are our own.
+Built with Tauri 2 (Rust backend, the system WebView for the UI). Name, icons and artwork are our own.
 
 The background research (kept privately, not in this repository) is reference for later; it is **not** the v1 target.
 
@@ -15,7 +15,7 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done and checked by you.
 - [ ] No CPU use while idle: no polling, no running animations
 - [ ] Results are fetched in pages and the grid only draws visible rows
 - [ ] The AI pane's process starts only when the pane is opened, and stops when it's closed
-- [ ] **No Node.js at runtime.** The shipped app is one Rust executable plus the WebView2 already on Windows. Node is used only on this PC at build time to bundle the UI, and isn't installed with or run by the app
+- [ ] **No Node.js at runtime.** The shipped app is one Rust executable plus the WebView the system already has (WebView2 on Windows, WebKit on macOS). Node is used only at build time to bundle the UI, and isn't installed with or run by the app
 - [ ] RAM and CPU measured and reported at each milestone
 
 ## Databases
@@ -31,7 +31,7 @@ Status: `[ ]` not started · `[~]` in progress · `[x]` done and checked by you.
 - [ ] Each connection has a **nickname** and a **colour**; the colour shows on the connection's window/status bar
 - [ ] Form per database type: host, port, user, password, database (SQLite: file path)
 - [ ] SSL mode, and an SSH tunnel (password or key)
-- [ ] Passwords stored in Windows Credential Manager, never in the connections file
+- [ ] Passwords stored in the system keychain (Windows Credential Manager, macOS Keychain), never in the connections file
 - [ ] Test, Save, Connect, Edit, Duplicate, Delete
 - [ ] **Import from URL**: paste `postgres://user:pass@host:5432/db?sslmode=require` (also `mysql://`, `sqlite:///path`, `mongodb://`, `mongodb+srv://`) to fill the form
 - [ ] **Copy as URL** (with or without the password)

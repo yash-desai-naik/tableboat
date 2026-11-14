@@ -27,12 +27,18 @@ function showWhenPainted() {
         .maximize()
         .catch(() => {})
         .then(() => appWindow.show())
-        // Windows doesn't record a restore position for a window maximized while hidden.
+        .then(() => appWindow.setFocus())
+        // A window maximized while still hidden has no proper restore position, so set one.
         .then(() => invoke("window_fit_restore"))
         .catch(() => {});
     }),
   );
 }
+
+// Never leave the user with only a Dock icon: if loading settings is slow or fails, show anyway.
+window.setTimeout(() => {
+  void appWindow.show().then(() => appWindow.setFocus()).catch(() => {});
+}, 1500);
 
 loadSettings()
   .then((settings) => {
@@ -45,5 +51,5 @@ loadSettings()
   })
   .catch((err) => {
     document.body.textContent = `Tableboat could not load its settings: ${err}`;
-    void appWindow.show();
+    void appWindow.show().then(() => appWindow.setFocus());
   });

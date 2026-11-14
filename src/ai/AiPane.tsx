@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import { editors } from "../editor/registry";
+import { fmtShortcut, IS_MAC } from "../lib/platform";
 import { openQuery, runAll } from "../editor/actions";
 import {
   answerPermission,
@@ -177,7 +178,7 @@ export function AiPane({ onClose }: { onClose: () => void }) {
         <button className="icon-btn small" title="New chat" onClick={() => void newChat()}>
           <NewChatIcon />
         </button>
-        <button className="icon-btn small" title="Close (Ctrl+Alt+B)" onClick={onClose}>
+        <button className="icon-btn small" title={`Close (${fmtShortcut("Ctrl+Alt+B")})`} onClick={onClose}>
           <CloseSmallIcon />
         </button>
       </div>
@@ -185,7 +186,8 @@ export function AiPane({ onClose }: { onClose: () => void }) {
       <div className="ai-list" ref={listRef}>
         {status && !status.installed && (
           <div className="ai-note error">
-            Claude Code (claude.exe) wasn't found. Install it and sign in once in a terminal, then reopen this pane.
+            Claude Code ({IS_MAC ? "claude" : "claude.exe"}) wasn't found. Install it and sign in once in a terminal, then
+            reopen this pane.
           </div>
         )}
         {chat.items.length === 0 && status?.installed && (

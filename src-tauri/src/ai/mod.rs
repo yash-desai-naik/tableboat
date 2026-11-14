@@ -1,4 +1,4 @@
-//! The Claude pane: runs the user's own `claude.exe` (Claude Code), talking stream-JSON over
+//! The Claude pane: runs the user's own Claude Code (`claude`), talking stream-JSON over
 //! stdin/stdout. No Node.js and no ACP adapter: Rust speaks the same protocol the adapter uses.
 //!
 //! Each connection is its own Claude Code project (see `tableboat_core::claude`).
@@ -556,6 +556,12 @@ pub fn voice_typing() -> Result<(), String> {
         }
         Ok(())
     }
-    #[cfg(not(windows))]
-    Err("Voice typing uses Windows voice typing (Win+H).".into())
+    #[cfg(target_os = "macos")]
+    {
+        Err("Use macOS dictation instead: turn it on in System Settings > Keyboard > Dictation, then press the microphone key twice.".into())
+    }
+    #[cfg(not(any(windows, target_os = "macos")))]
+    {
+        Err("Voice typing isn't available on this system.".into())
+    }
 }

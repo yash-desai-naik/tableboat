@@ -1,6 +1,6 @@
 //! Terminal bits: colours (off when piped, `--no-color` or NO_COLOR), questions and hidden
-//! password input. Questions read the console itself (CONIN$), so they work even when the
-//! query comes in on a pipe.
+//! password input. Questions read the console itself (CONIN$ on Windows, /dev/tty elsewhere),
+//! so they work even when the query comes in on a pipe.
 
 use std::io::{BufRead, IsTerminal, Write};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -33,6 +33,20 @@ fn enable_vt() {
     }
 }
 
+/// Turn terminal echo on or off for our console: `stty -echo` / `stty echo`. macOS spells the
+/// device flag `-f`, Linux `-F`. True when it worked.
+#[cfg(not(windows))]
+fn stty(mode: &str) -> bool {
+    ["-f", "-F"].iter().any(|flag| {
+        std::process::Command::new("stty")
+            .args([*flag, "/dev/tty", mode])
+            .stderr(std::process::Stdio::null())
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false)
+    })
+}
+
 fn paint(code: &str, s: &str) -> String {
     if COLOR.load(Ordering::Relaxed) { format!("\x1b[{code}m{s}\x1b[0m") } else { s.to_string() }
 }
@@ -57,7 +71,11 @@ pub fn stdout_is_terminal() -> bool {
 
 /// The console for questions, even when stdin is a pipe. None when there is no console.
 fn console() -> Option<std::fs::File> {
-    std::fs::OpenOptions::new().read(true).write(true).open("CONIN$").ok()
+    #[cfg(windows)]
+    let device = "CONIN$";
+    #[cfg(not(windows))]
+    let device = "/dev/tty";
+    std::fs::OpenOptions::new().read(true).write(true).open(device).ok()
 }
 
 /// A person can answer: there's a console and stderr (where questions go) is a terminal.
@@ -107,6 +125,8 @@ pub fn password(prompt: &str) -> Option<String> {
             None
         }
     };
+    #[cfg(not(windows))]
+    let restore = stty("-echo");
     let mut line = String::new();
     let read = std::io::BufReader::new(&con).read_line(&mut line);
     #[cfg(windows)]
@@ -114,6 +134,10 @@ pub fn password(prompt: &str) -> Option<String> {
         unsafe {
             let _ = windows::Win32::System::Console::SetConsoleMode(h, mode);
         }
+    }
+    #[cfg(not(windows))]
+    if restore {
+        stty("echo");
     }
     eprintln!();
     read.ok()?;
