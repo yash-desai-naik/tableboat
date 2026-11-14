@@ -41,5 +41,11 @@
     "@vitejs/plugin-react": "^6.3.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.6"
+  },
+  "overrides": {
+    "@glideapps/glide-data-grid": {
+      "react": "$react",
+      "react-dom": "$react-dom"
+    }
   }
 }
