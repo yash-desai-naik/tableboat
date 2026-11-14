@@ -5,12 +5,16 @@ import { updateSettings, useSettings, type Settings } from "../lib/settings";
 import { Dialog } from "../shell/Dialog";
 import { useAppVersion, versionLine } from "../shell/AboutDialog";
 import { uiActions } from "../lib/ui";
+import { shownMode, usePrefersDark } from "../lib/themeMode";
+import type { ThemeMode } from "../themes";
+import { ThemePicker } from "./ThemePicker";
 
 type Def =
   | { key: keyof Settings; type: "select"; options: [string | number, string][] }
   | { key: keyof Settings; type: "number"; min: number; max: number; step?: number; suffix?: string }
   | { key: keyof Settings; type: "toggle" }
-  | { key: "sidebarKinds"; type: "kinds" };
+  | { key: "sidebarKinds"; type: "kinds" }
+  | { key: "lightTheme" | "darkTheme"; type: "themes"; mode: ThemeMode };
 
 type Entry = Def & { section: string; label: string; help?: string };
 
@@ -20,12 +24,29 @@ const ENTRIES: Entry[] = [
     section: "Appearance",
     key: "theme",
     type: "select",
-    label: "Theme",
+    label: "Mode",
+    help: "Light or dark theme. Match Windows switches with Windows.",
     options: [
       ["system", "Match Windows"],
       ["light", "Light"],
       ["dark", "Dark"],
     ],
+  },
+  {
+    section: "Appearance",
+    key: "lightTheme",
+    type: "themes",
+    mode: "light",
+    label: "Light theme",
+    help: "Colours used when the mode is light. Point at a card to try it.",
+  },
+  {
+    section: "Appearance",
+    key: "darkTheme",
+    type: "themes",
+    mode: "dark",
+    label: "Dark theme",
+    help: "Colours used when the mode is dark. Point at a card to try it.",
   },
   {
     section: "Appearance",
@@ -124,6 +145,7 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
   const [query, setQuery] = useState("");
   const [fileNote, setFileNote] = useState<string | null>(null);
   const version = useAppVersion();
+  const mode = shownMode(settings.theme, usePrefersDark());
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -182,17 +204,28 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
           </div>
           {visible
             .filter((e) => e.section === section)
-            .map((e) => (
-              <div key={e.key} className="setting-row">
-                <div className="setting-text">
-                  <div>{e.label}</div>
-                  {e.help && <div className="muted small">{e.help}</div>}
+            .map((e) =>
+              e.type === "themes" ? (
+                <ThemePicker
+                  key={e.key}
+                  mode={e.mode}
+                  chosen={settings[e.key]}
+                  label={e.label}
+                  help={e.help}
+                  usedNow={mode === e.mode}
+                />
+              ) : (
+                <div key={e.key} className="setting-row">
+                  <div className="setting-text">
+                    <div>{e.label}</div>
+                    {e.help && <div className="muted small">{e.help}</div>}
+                  </div>
+                  <div className="setting-control">
+                    <Control entry={e} settings={settings} />
+                  </div>
                 </div>
-                <div className="setting-control">
-                  <Control entry={e} settings={settings} />
-                </div>
-              </div>
-            ))}
+              ),
+            )}
         </section>
       ))}
     </Dialog>
@@ -261,6 +294,8 @@ function Control({ entry, settings }: { entry: Entry; settings: Settings }) {
           ))}
         </div>
       );
+    case "themes":
+      return null; // drawn full width by ThemePicker
   }
 }
 
