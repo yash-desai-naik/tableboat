@@ -20,6 +20,9 @@ export interface ThemeData {
   accent: { text: string; fill: string; on: string };
   selection?: string;
   status: { danger: string; warning: string; success: string; info: string };
+  /** Red for fills under white text (close button, error badges): `status.danger`, darker if needed for 4.5:1. */
+  dangerFill: string;
+  /** Text on `dangerFill`: always white. */
   onDanger: string;
   syntax: Record<"keyword" | "type" | "function" | "string" | "number" | "literal" | "property" | "operator" | "comment", string>;
   kind: Record<"table" | "view" | "function" | "procedure" | "trigger", string>;
@@ -189,6 +192,7 @@ export function themeVariables(theme: ThemeData): Record<string, string> {
     "--success": success,
     "--info": info,
     "--on-danger": theme.onDanger,
+    "--danger-fill": theme.dangerFill,
     "--danger-bg": mix(danger, 14, bg),
     "--success-bg": mix(success, 14, bg),
     "--warning-bg": mix(warning, 14, bg),

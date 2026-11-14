@@ -139,7 +139,7 @@ mod tests {
             let theme = Theme { id: id.into(), obj: t };
             let mut required: Vec<String> = Vec::new();
             required.extend(SURFACES.iter().map(|s| format!("surface.{s}")));
-            required.extend(["text.primary", "text.secondary", "text.hint", "accent.text", "accent.fill", "accent.on", "onDanger"].map(String::from));
+            required.extend(["text.primary", "text.secondary", "text.hint", "accent.text", "accent.fill", "accent.on", "dangerFill", "onDanger"].map(String::from));
             required.extend(STATUS.iter().map(|s| format!("status.{s}")));
             required.extend(SYNTAX.iter().map(|s| format!("syntax.{s}")));
             required.extend(KINDS.iter().map(|s| format!("kind.{s}")));
@@ -151,8 +151,9 @@ mod tests {
             if t.contains_key("selection") && theme.get("selection").is_none() {
                 failures.push(format!("{id}: selection is not a #rrggbb colour"));
             }
-            if !matches!(theme.get("onDanger"), Some("#ffffff" | "#000000")) {
-                failures.push(format!("{id}: onDanger must be #ffffff or #000000"));
+            // The close button and error badges always show white text, on a red dark enough for it.
+            if theme.get("onDanger") != Some("#ffffff") {
+                failures.push(format!("{id}: onDanger must be #ffffff"));
             }
             for group in ["surface", "text", "accent", "status", "syntax", "kind"] {
                 for (k, v) in t.get(group).and_then(Value::as_object).into_iter().flatten() {
@@ -205,7 +206,7 @@ mod tests {
             need("text.hint", &every, ui);
             need("accent.text", &bg_elevated, ui);
             need("accent.on", &["accent.fill"], 4.5);
-            need("onDanger", &["status.danger"], 4.5);
+            need("onDanger", &["dangerFill"], 4.5);
             need("text.primary", &["selection"], 4.5);
             for s in STATUS {
                 need(&format!("status.{s}"), &bg_elevated, ui);

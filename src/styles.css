@@ -40,6 +40,10 @@
   --tabs-h: 32px;
 }
 
+/* Colour themes. src/themes/themes.json is the source of truth: src/themes/index.ts writes every
+   colour variable for the chosen theme at start. These two blocks are the Tableboat themes as a
+   fallback for the very first paint; keep them equal to what themes.json gives those themes. */
+
 :root[data-theme="dark"] {
   color-scheme: dark;
   --bg: #262624;
@@ -80,7 +84,9 @@
   --warning: #d29922;
   --success: #46a971;
   --info: #589ed8;
-  --on-danger: #000000; /* white is 2.9:1 on this red, black 7.3:1 */
+  /* White text goes on --danger-fill (close button, error badges): the red a step darker, 4.6:1. */
+  --danger-fill: #ca4c3c;
+  --on-danger: #ffffff;
   --danger-bg: #3e2f2b;
   --success-bg: #273026;
   --warning-bg: #3b3424;
@@ -156,6 +162,7 @@
   --warning: #8a6400;
   --success: #2e7d32;
   --info: #0000ff;
+  --danger-fill: #b5352a;
   --on-danger: #ffffff;
   --danger-bg: #f2e1dd;
   --success-bg: #e2eade;
@@ -445,7 +452,7 @@ body.resizing * {
   color: var(--text);
 }
 .caption-btn.close:hover {
-  background: var(--danger);
+  background: var(--danger-fill);
   color: var(--on-danger);
 }
 

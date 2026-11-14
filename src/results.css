@@ -145,7 +145,7 @@ body.resizing-v * {
   margin-left: 6px;
   padding: 0 5px;
   border-radius: 8px;
-  background: var(--danger);
+  background: var(--danger-fill);
   color: var(--on-danger);
   font-size: var(--fs-xs);
 }
