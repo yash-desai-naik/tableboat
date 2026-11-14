@@ -3,43 +3,29 @@ import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { tags as t } from "@lezer/highlight";
 import type { Extension } from "@codemirror/state";
 
-/** VS Code "Dark+" token colours. */
-const darkPlus = HighlightStyle.define([
-  { tag: [t.keyword, t.operatorKeyword, t.modifier, t.controlKeyword], color: "#569CD6" },
-  { tag: [t.typeName, t.className], color: "#4EC9B0" },
-  { tag: [t.standard(t.name), t.function(t.variableName)], color: "#DCDCAA" },
-  { tag: [t.string, t.special(t.string)], color: "#CE9178" },
-  { tag: [t.number], color: "#B5CEA8" },
-  { tag: [t.bool, t.null, t.atom], color: "#569CD6" },
-  { tag: [t.comment, t.lineComment, t.blockComment], color: "#6A9955" },
-  { tag: [t.variableName, t.propertyName, t.special(t.name)], color: "#9CDCFE" },
-  { tag: [t.name], color: "#D4D4D4" },
-  { tag: [t.operator, t.punctuation, t.bracket, t.separator], color: "#D4D4D4" },
-  { tag: t.invalid, color: "#F44747" },
+/** Token colours come from the theme (`--syn-*` in styles.css), so one style serves every theme. */
+const syntax = HighlightStyle.define([
+  { tag: [t.keyword, t.operatorKeyword, t.modifier, t.controlKeyword], color: "var(--syn-keyword)" },
+  { tag: [t.typeName, t.className], color: "var(--syn-type)" },
+  { tag: [t.standard(t.name), t.function(t.variableName)], color: "var(--syn-function)" },
+  { tag: [t.string, t.special(t.string)], color: "var(--syn-string)" },
+  { tag: [t.number], color: "var(--syn-number)" },
+  { tag: [t.bool, t.null, t.atom], color: "var(--syn-literal)" },
+  { tag: [t.comment, t.lineComment, t.blockComment], color: "var(--syn-comment)" },
+  { tag: [t.variableName, t.propertyName, t.special(t.name)], color: "var(--syn-property)" },
+  { tag: [t.name], color: "var(--syn-operator)" },
+  { tag: [t.operator, t.punctuation, t.bracket, t.separator], color: "var(--syn-operator)" },
+  { tag: t.invalid, color: "var(--syn-invalid)" },
 ]);
 
-/** VS Code "Light+" token colours. */
-const lightPlus = HighlightStyle.define([
-  { tag: [t.keyword, t.operatorKeyword, t.modifier, t.controlKeyword], color: "#0000FF" },
-  { tag: [t.typeName, t.className], color: "#267F99" },
-  { tag: [t.standard(t.name), t.function(t.variableName)], color: "#795E26" },
-  { tag: [t.string, t.special(t.string)], color: "#A31515" },
-  { tag: [t.number], color: "#098658" },
-  { tag: [t.bool, t.null, t.atom], color: "#0000FF" },
-  { tag: [t.comment, t.lineComment, t.blockComment], color: "#008000" },
-  { tag: [t.variableName, t.propertyName, t.special(t.name)], color: "#001080" },
-  { tag: [t.name], color: "#1F1F1F" },
-  { tag: [t.operator, t.punctuation, t.bracket, t.separator], color: "#1F1F1F" },
-  { tag: t.invalid, color: "#CD3131" },
-]);
-
+/** Editor chrome. `dark` only tells CodeMirror which base styles to use; colours are theme tokens. */
 function chrome(dark: boolean): Extension {
   return EditorView.theme(
     {
       "&": {
         height: "100%",
         backgroundColor: "var(--bg)",
-        color: dark ? "#D4D4D4" : "#1F1F1F",
+        color: "var(--syn-operator)", // plain identifiers: the syntax foreground, as in VS Code
         fontSize: "var(--editor-font-size)",
       },
       ".cm-scroller": {
@@ -52,20 +38,20 @@ function chrome(dark: boolean): Extension {
         { backgroundColor: "var(--selection)" },
       ".cm-gutters": {
         backgroundColor: "var(--bg)",
-        color: dark ? "#6E7681" : "#9A9A9A",
+        color: "var(--editor-gutter)",
         border: "none",
       },
-      ".cm-activeLineGutter": { backgroundColor: "transparent", color: "var(--text-2)" },
+      ".cm-activeLineGutter": { backgroundColor: "transparent", color: "var(--editor-gutter-active)" },
       ".cm-activeLine": { backgroundColor: "transparent" },
       // The statement Ctrl+Enter will run.
-      ".cm-current-stmt": { backgroundColor: dark ? "rgba(255,255,255,0.045)" : "rgba(0,0,0,0.035)" },
+      ".cm-current-stmt": { backgroundColor: "var(--editor-current-stmt)" },
       ".cm-matchingBracket, .cm-nonmatchingBracket": {
-        backgroundColor: dark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.1)",
-        outline: dark ? "1px solid #888" : "1px solid #B9B9B9",
+        backgroundColor: "var(--editor-bracket)",
+        outline: "1px solid var(--editor-bracket-outline)",
       },
       ".cm-selectionMatch": { backgroundColor: "var(--accent-soft)" },
-      ".cm-searchMatch": { backgroundColor: dark ? "#623315" : "#F8C9AB", outline: "none" },
-      ".cm-searchMatch.cm-searchMatch-selected": { backgroundColor: dark ? "#9E6A03" : "#F6B94D" },
+      ".cm-searchMatch": { backgroundColor: "var(--search-match)", outline: "none" },
+      ".cm-searchMatch.cm-searchMatch-selected": { backgroundColor: "var(--search-current)" },
       ".cm-foldPlaceholder": { backgroundColor: "transparent", border: "none", color: "var(--text-3)" },
       ".cm-tooltip": {
         backgroundColor: "var(--bg-elevated)",
@@ -96,12 +82,12 @@ function chrome(dark: boolean): Extension {
         borderRadius: "4px",
         color: "var(--text)",
       },
-      ".cm-lintRange-error": { backgroundImage: "none", textDecoration: "underline wavy #F44747" },
+      ".cm-lintRange-error": { backgroundImage: "none", textDecoration: "underline wavy var(--danger)" },
     },
     { dark },
   );
 }
 
 export function editorTheme(dark: boolean): Extension {
-  return [chrome(dark), syntaxHighlighting(dark ? darkPlus : lightPlus)];
+  return [chrome(dark), syntaxHighlighting(syntax)];
 }
