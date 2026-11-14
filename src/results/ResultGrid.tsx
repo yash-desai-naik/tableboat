@@ -67,12 +67,12 @@ interface Props {
 
 function readTheme() {
   const css = getComputedStyle(document.documentElement);
+  // Glide draws on a canvas, so it needs real colour strings: theme tokens are plain hex/rgba.
   const v = (name: string) => css.getPropertyValue(name).trim();
   const s = getSettings();
-  const dark = document.documentElement.dataset.theme === "dark";
   const theme: Partial<Theme> = {
     accentColor: v("--accent"),
-    accentFg: "#ffffff",
+    accentFg: v("--accent-text"),
     accentLight: v("--accent-soft"),
     textDark: v("--text"),
     textMedium: v("--text-2"),
@@ -81,7 +81,7 @@ function readTheme() {
     bgIconHeader: v("--text-3"),
     fgIconHeader: v("--bg"),
     textHeader: v("--text"),
-    textHeaderSelected: "#ffffff",
+    textHeaderSelected: v("--accent-text"),
     bgCell: v("--bg"),
     bgCellMedium: v("--bg-chrome"),
     bgHeader: v("--bg-chrome"),
@@ -89,8 +89,8 @@ function readTheme() {
     bgHeaderHovered: v("--bg-hover"),
     bgBubble: v("--bg-elevated"),
     bgBubbleSelected: v("--bg-active"),
-    bgSearchResult: dark ? "#623315" : "#F8C9AB",
-    borderColor: dark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)",
+    bgSearchResult: v("--search-match"),
+    borderColor: v("--grid-line"),
     horizontalBorderColor: "transparent",
     headerBottomBorderColor: v("--border-strong"),
     drilldownBorder: v("--border"),
@@ -108,10 +108,12 @@ function readTheme() {
     theme,
     zebra: v("--zebra"),
     muted: v("--text-3"),
+    // Selected column header: accent fill with accent text on it.
+    headerSelected: v("--accent-fill"),
     // Pending changes: amber edited cells, green new rows, red deleted rows.
-    changed: dark ? "#3b3218" : "#fff1cc",
-    added: dark ? "#183a24" : "#dcf5e3",
-    deleted: dark ? "#43201f" : "#fbe0e0",
+    changed: v("--edit-changed"),
+    added: v("--edit-added"),
+    deleted: v("--edit-deleted"),
   };
 }
 
@@ -266,14 +268,14 @@ export function ResultGrid({ info, rowCount, dialect, table, sort, onSort, versi
       const { ctx, rect, columnIndex, theme: t, isHovered, isSelected } = args;
       const meta = info.columns[columnIndex];
       if (!meta) return;
-      ctx.fillStyle = isSelected ? t.accentColor : isHovered ? t.bgHeaderHovered : t.bgHeader;
+      ctx.fillStyle = isSelected ? look.headerSelected : isHovered ? t.bgHeaderHovered : t.bgHeader;
       ctx.fillRect(rect.x, rect.y, rect.width, rect.height);
       const pad = 8;
       const mid = rect.y + rect.height / 2;
       let right = rect.x + rect.width - pad;
       ctx.textBaseline = "middle";
       if (sort?.column === columnIndex) {
-        ctx.fillStyle = isSelected ? "#ffffff" : t.accentColor;
+        ctx.fillStyle = isSelected ? t.textHeaderSelected : t.accentColor;
         ctx.font = `700 11px ${t.fontFamily}`;
         ctx.textAlign = "right";
         ctx.fillText(sort.descending ? "↓" : "↑", right, mid);
@@ -291,12 +293,15 @@ export function ResultGrid({ info, rowCount, dialect, table, sort, onSort, versi
       const nameWidth = ctx.measureText(meta.name).width;
       if (type && nameWidth + typeWidth + 12 <= nameSpace) {
         ctx.font = `11px ${t.fontFamily}`;
-        ctx.fillStyle = isSelected ? "rgba(255,255,255,0.8)" : t.textLight;
+        ctx.fillStyle = isSelected ? t.textHeaderSelected : t.textLight;
+        const alpha = ctx.globalAlpha;
+        if (isSelected) ctx.globalAlpha = alpha * 0.8;
         ctx.textAlign = "right";
         ctx.fillText(type, right, mid);
+        ctx.globalAlpha = alpha;
       }
       ctx.font = `600 12px ${t.fontFamily}`;
-      ctx.fillStyle = isSelected ? "#ffffff" : t.textHeader;
+      ctx.fillStyle = isSelected ? t.textHeaderSelected : t.textHeader;
       ctx.textAlign = "left";
       let name = meta.name;
       if (nameWidth > nameSpace) {
@@ -305,7 +310,7 @@ export function ResultGrid({ info, rowCount, dialect, table, sort, onSort, versi
       }
       ctx.fillText(name, rect.x + pad, mid);
     },
-    [info.columns, sort, edit?.ctx],
+    [info.columns, sort, edit?.ctx, look],
   );
 
   const drawCell = useCallback<DrawCellCallback>(
