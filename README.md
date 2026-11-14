@@ -6,7 +6,9 @@ editor, a results grid with safe editing, a command line (`tb`), and **Claude Co
 Built with [Tauri 2](https://tauri.app) (Rust backend, the WebView2 already on Windows). No Electron and
 no Node.js at runtime: about 140 MB of memory with a connection open, and no CPU use while idle.
 
-> Status: early (v0.1.0), Windows only, used daily by its author. Expect rough edges.
+> Status: early (v0.3), Windows only, used daily by its author. Expect rough edges.
+
+![Tableboat: the schema sidebar, a SQL query and its results, and Claude answering a question about the data](docs/screenshots/hero.png)
 
 ## Features
 
@@ -28,6 +30,20 @@ no Node.js at runtime: about 140 MB of memory with a connection open, and no CPU
   more. See [docs/CLI.md](docs/CLI.md).
 - **Updates:** Tableboat tells you when a new version is out and installs it for you (signed and verified).
 - Several windows, tabs restored per connection, 19 colour themes (Catppuccin, Tokyo Night, GitHub, One Dark, Rosé Pine, Gruvbox, Kanagawa, Nord, Dracula, High Contrast), three densities, command palette.
+
+## Screenshots
+
+All screenshots are of the real app on a made-up demo shop database (see
+[scripts/screenshots](scripts/screenshots/README.md) to recreate them).
+
+| | |
+|---|---|
+| ![Editing a table: a changed city and note in amber, a row marked for deletion in red, and a Save 3 button](docs/screenshots/edits.png) | ![The SQL Tableboat will run for those edits: one DELETE and two UPDATEs in a single transaction](docs/screenshots/preview.png) |
+| **Safe editing.** Change cells and delete or add rows; nothing is written until you save. *(Tableboat Light)* | **Preview the SQL** before saving; it runs in one transaction with parameters. |
+| ![MongoDB orders shown as documents with nested items, ObjectId and ISODate values](docs/screenshots/mongo.png) | ![Settings with light and dark theme cards, each a miniature Tableboat](docs/screenshots/themes.png) |
+| **MongoDB documents** with their nesting and types. *(Catppuccin Mocha)* | **19 themes:** pick one for light mode and one for dark; hover a card to try it. *(GitHub Light)* |
+| ![The command palette filtered to theme commands](docs/screenshots/palette.png) | ![The connection list with PROD, DEV, LOCAL and STAGING tags](docs/screenshots/connections.png) |
+| **Command palette** for every action. *(Tokyo Night)* | **Connections** with colours and tags; passwords stay in Windows Credential Manager. |
 
 ## Install
 
