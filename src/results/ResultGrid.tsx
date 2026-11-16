@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import {
   CompactSelection,
   DataEditor,
@@ -33,6 +33,10 @@ import { Menu, type MenuItem } from "../shell/Menu";
 const BLOCK = 200;
 /** Longer values are cut for drawing; the full value is still copied and shown on open. */
 const DRAW_LIMIT = 500;
+const MIN_COL = 48;
+const MAX_COL = 1200;
+/** Pixels either side of a header border that count as the border (Glide's resize zone is 5). */
+const EDGE = 5;
 
 export type SortState = { column: number; descending: boolean } | null;
 type Row = (string | null)[];
@@ -157,6 +161,8 @@ export function ResultGrid({ info, rowCount, dialect, table, sort, onSort, versi
   const pending = useRef(new Set<number>());
   const [, setTick] = useState(0);
   const [widths, setWidths] = useState<number[]>(() => info.columns.map((c) => initialWidth(c.name, c.typeName)));
+  // Columns last fitted to their content: a second double-click puts them back to the default width.
+  const fitted = useRef(new Set<number>());
   const [selection, setSelection] = useState<GridSelection>({
     rows: CompactSelection.empty(),
     columns: CompactSelection.empty(),
@@ -191,6 +197,7 @@ export function ResultGrid({ info, rowCount, dialect, table, sort, onSort, versi
 
   useEffect(() => {
     setWidths(info.columns.map((c) => initialWidth(c.name, c.typeName)));
+    fitted.current.clear();
     setSelection({ rows: CompactSelection.empty(), columns: CompactSelection.empty() });
   }, [info.id, info.columns]);
 
@@ -259,6 +266,72 @@ export function ResultGrid({ info, rowCount, dialect, table, sort, onSort, versi
     [info, fetchBlock, version, edit?.version, rowCount, look],
   );
 
+  /** The header's type label: `varchar ·PK`, `int ·gen`. */
+  const typeLabel = (col: number): string => {
+    const meta = info.columns[col];
+    const tableCol = edit?.ctx.columns[col];
+    return (
+      meta.typeName +
+      (meta.primaryKey || tableCol?.primaryKey ? " ·PK" : "") +
+      (tableCol?.generated ? " ·gen" : "")
+    );
+  };
+
+  /**
+   * Width that shows a column's longest value and its whole header: every loaded row (and new rows),
+   * measured in the grid's font. Like Excel's double-click on a column border.
+   */
+  const fitWidth = (col: number): number => {
+    const meta = info.columns[col];
+    const family = look.theme.fontFamily ?? "monospace";
+    const ctx = document.createElement("canvas").getContext("2d");
+    if (!meta || !ctx) return widths[col] ?? 120;
+    ctx.font = `${settings.gridFontSize}px ${family}`;
+    let widest = 0;
+    const measure = (row: number) => {
+      const cell = getCellContent([col, row]);
+      if (cell.kind === GridCellKind.Text) widest = Math.max(widest, ctx.measureText(cell.displayData).width);
+    };
+    for (const [block, rows] of cache.current) for (let i = 0; i < rows.length; i++) measure(block * BLOCK + i);
+    for (let r = rowCount; r < totalRows; r++) measure(r);
+    const cells = widest + 2 * 8 + 4;
+    ctx.font = `600 12px ${family}`;
+    const name = ctx.measureText(meta.name).width;
+    ctx.font = `11px ${family}`;
+    const type = ctx.measureText(typeLabel(col)).width;
+    const header = 8 + name + 12 + type + (sort?.column === col ? 14 : 0) + 8 + 2;
+    return Math.max(MIN_COL, Math.min(MAX_COL, Math.ceil(Math.max(cells, header))));
+  };
+
+  const toggleFit = (col: number) => {
+    const meta = info.columns[col];
+    if (!meta) return;
+    const back = fitted.current.has(col);
+    if (back) fitted.current.delete(col);
+    else fitted.current.add(col);
+    const width = back ? initialWidth(meta.name, meta.typeName) : fitWidth(col);
+    setWidths((w) => {
+      const next = [...w];
+      next[col] = width;
+      return next;
+    });
+  };
+
+  /** Double-click on a column's border in the header (where the resize cursor shows) toggles its fit. */
+  const onHeaderEdgeDoubleClick = (e: ReactMouseEvent) => {
+    const grid = gridRef.current;
+    if (!grid) return;
+    for (let col = 0; col < info.columns.length; col++) {
+      const b = grid.getBounds(col, -1);
+      if (!b || e.clientY < b.y || e.clientY > b.y + b.height) continue;
+      if (Math.abs(e.clientX - (b.x + b.width)) <= EDGE) {
+        e.preventDefault();
+        toggleFit(col);
+        return;
+      }
+    }
+  };
+
   const columns = useMemo<GridColumn[]>(
     () => info.columns.map((c, i) => ({ id: String(i), title: c.name, width: widths[i] ?? 120 })),
     [info.columns, widths],
@@ -282,11 +355,7 @@ export function ResultGrid({ info, rowCount, dialect, table, sort, onSort, versi
         ctx.fillText(sort.descending ? "↓" : "↑", right, mid);
         right -= 14;
       }
-      const tableCol = edit?.ctx.columns[columnIndex];
-      const type =
-        meta.typeName +
-        (meta.primaryKey || tableCol?.primaryKey ? " ·PK" : "") +
-        (tableCol?.generated ? " ·gen" : "");
+      const type = typeLabel(columnIndex);
       ctx.font = `11px ${t.fontFamily}`;
       const typeWidth = ctx.measureText(type).width;
       const nameSpace = right - (rect.x + pad);
@@ -505,6 +574,7 @@ export function ResultGrid({ info, rowCount, dialect, table, sort, onSort, versi
   return (
     <div
       className="result-grid"
+      onDoubleClick={onHeaderEdgeDoubleClick}
       onKeyDownCapture={(e) => {
         // Keys typed into the cell editor are not grid shortcuts.
         if ((e.target as HTMLElement).closest("textarea, input")) return;
@@ -568,13 +638,15 @@ export function ResultGrid({ info, rowCount, dialect, table, sort, onSort, versi
               }
             : undefined
         }
-        onColumnResize={(_col, size, index) =>
+        onColumnResize={(_col, size, index) => {
+          // Dragged by hand: the next double-click fits it again.
+          fitted.current.delete(index);
           setWidths((w) => {
             const next = [...w];
             next[index] = size;
             return next;
-          })
-        }
+          });
+        }}
         onHeaderClicked={(col) => {
           // Cycle: first direction → other direction → original order.
           const first = settings.sortDescendingFirst;
@@ -602,8 +674,8 @@ export function ResultGrid({ info, rowCount, dialect, table, sort, onSort, versi
           }
           contextMenu(e.bounds.x + e.localEventX, e.bounds.y + e.localEventY);
         }}
-        minColumnWidth={48}
-        maxColumnWidth={1200}
+        minColumnWidth={MIN_COL}
+        maxColumnWidth={MAX_COL}
       />
       {menu && <Menu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />}
     </div>
